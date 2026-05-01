@@ -1,8 +1,7 @@
-# APK de instalación para Android / Android TV (firma debug de Gradle; sirve para sideload).
-# URL estable (mismo nombre de archivo en cada release):
+# APK para Android TV / móvil (debug). URL estable:
 #   https://github.com/svicens-star/streamnexus/releases/latest/download/StreamNexus-TV-install.apk
 #
-# Disparo: git tag v0.0.x && git push origin v0.0.x
+# Tag: git tag v0.0.x && git push origin v0.0.x
 
 name: Release Android TV (APK sideload)
 
@@ -31,25 +30,32 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools'
-
-      - name: Install API 36 + build-tools
+      - name: Install Android SDK (CLI + API 36)
         run: |
-          sdkmanager --install "platforms;android-36" "build-tools;34.0.0"
+          set -e
+          SDK="$HOME/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o /tmp/clt.zip
+          unzip -q /tmp/clt.zip -d /tmp/clt
+          mv /tmp/clt/cmdline-tools "$SDK/cmdline-tools/latest"
+          export ANDROID_SDK_ROOT="$SDK"
+          export PATH="$PATH:$SDK/cmdline-tools/latest/bin"
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;34.0.0"
+          echo "ANDROID_SDK_ROOT=$SDK" >> $GITHUB_ENV
+          echo "$SDK/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$SDK/platform-tools" >> $GITHUB_PATH
 
       - name: Gradle SDK path
         run: echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
 
       - name: Build web + Capacitor (solo Android) + debug APK
         run: |
-          npm install --no-audit --no-fund
+          npm ci
           npm run mobile:build:android
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon
 
       - name: Prepare asset name
         run: |
