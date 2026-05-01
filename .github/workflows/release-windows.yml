@@ -1,13 +1,11 @@
-# Publica el instalador Windows y latest.yml en GitHub Releases (gratis).
-# Uso: creá un tag, por ejemplo: git tag v0.0.5 && git push origin v0.0.5
-# Luego subí los mismos archivos de release/ a Base44 en .../electron-updates/ si usás ese feed.
+# Publica el instalador Windows y latest.yml en GitHub Releases.
+# Manual: Actions → Release Windows → Run workflow (el build de Windows en CI suele ser más exigente).
+# Para APK TV automático al etiquetar, usá release-android-tv.yml.
 
 name: Release Windows (StreamNexus)
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write

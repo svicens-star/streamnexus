@@ -1,8 +1,8 @@
 # APK de instalación para Android / Android TV (firma debug de Gradle; sirve para sideload).
-# Nombre fijo del archivo → URL estable para compartir en la TV:
+# URL estable (mismo nombre de archivo en cada release):
 #   https://github.com/svicens-star/streamnexus/releases/latest/download/StreamNexus-TV-install.apk
 #
-# Se ejecuta al empujar un tag v* (junto al workflow de Windows). No requiere secretos.
+# Disparo: git tag v0.0.x && git push origin v0.0.x
 
 name: Release Android TV (APK sideload)
 
@@ -33,12 +33,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'tools platform-tools platforms;android-36 build-tools;34.0.0'
 
-      - name: SDK components + local.properties
-        run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager --install "platforms;android-36" "build-tools;34.0.0" "platform-tools"
-          echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
+      - name: Gradle SDK path
+        run: echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
 
       - name: Build web + Capacitor (solo Android) + debug APK
         run: |
@@ -46,7 +45,7 @@ jobs:
           npm run mobile:build:android
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Prepare asset name
         run: |
@@ -57,6 +56,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: false
+          tag_name: ${{ github.ref_name }}
           files: StreamNexus-TV-install.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
