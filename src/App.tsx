@@ -18,6 +18,9 @@ type ChannelCategory = 'news' | 'sports' | 'movies' | 'kids' | 'streaming' | 'se
 
 /** Repo público de la app: enlaces de instalación y releases. */
 const PUBLIC_GITHUB_RELEASES_LATEST = 'https://github.com/svicens-star/streamnexus/releases/latest';
+/** Mismo nombre de archivo en cada release → enlace estable para TV / móvil (sideload). */
+const PUBLIC_GITHUB_TV_APK_LATEST =
+  'https://github.com/svicens-star/streamnexus/releases/latest/download/StreamNexus-TV-install.apk';
 
 const STREAMING_APPS = [
   { name: 'LUZU TV', url: 'https://www.youtube.com/@luzutv', color: '#23D4E3', subtitle: 'Streaming en vivo y clips' },
@@ -855,7 +858,8 @@ const InstallStreamNexusSection = () => {
     return null;
   }
 
-  const apkUrl = (import.meta.env.VITE_ANDROID_APK_URL || '').trim();
+  const apkUrl =
+    (import.meta.env.VITE_ANDROID_APK_URL || '').trim() || PUBLIC_GITHUB_TV_APK_LATEST;
   const releasesUrl =
     (import.meta.env.VITE_ANDROID_RELEASES_URL || '').trim() || PUBLIC_GITHUB_RELEASES_LATEST;
   const playUrl = (import.meta.env.VITE_GOOGLE_PLAY_URL || '').trim();
