@@ -34,14 +34,18 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'tools platform-tools platforms;android-36 build-tools;34.0.0'
+          packages: 'platform-tools'
+
+      - name: Install API 36 + build-tools
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;34.0.0"
 
       - name: Gradle SDK path
         run: echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
 
       - name: Build web + Capacitor (solo Android) + debug APK
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run mobile:build:android
           cd android
           chmod +x gradlew
