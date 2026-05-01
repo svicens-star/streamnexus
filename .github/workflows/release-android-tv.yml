@@ -36,9 +36,8 @@ jobs:
 
       - name: SDK components + local.properties
         run: |
-          # Debe coincidir con android/variables.gradle (compileSdkVersion)
-          sdkmanager --install "platforms;android-36" "build-tools;35.0.0" "platform-tools"
           yes | sdkmanager --licenses || true
+          sdkmanager --install "platforms;android-36" "build-tools;34.0.0" "platform-tools"
           echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
 
       - name: Build web + Capacitor (solo Android) + debug APK
