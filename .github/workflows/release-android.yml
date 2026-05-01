@@ -9,10 +9,8 @@
 
 name: Release Android (APK + AAB)
 
+# Solo manual: requiere secretos de firma. El APK para TV sale del workflow release-android-tv.yml al etiquetar v*.
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -41,6 +39,7 @@ jobs:
         run: |
           sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
           yes | sdkmanager --licenses || true
+          echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
 
       - name: Decode keystore
         env:
@@ -70,10 +69,10 @@ jobs:
             echo "storeFile=../upload-keystore.jks"
           } > android/keystore.properties
 
-      - name: npm ci and Capacitor sync
+      - name: npm ci and Capacitor sync (solo Android)
         run: |
           npm ci
-          npm run mobile:build
+          npm run mobile:build:android
 
       - name: Gradle assembleRelease + bundleRelease
         working-directory: android

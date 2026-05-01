@@ -1,7 +1,7 @@
 {
   "name": "react-example",
   "private": true,
-  "version": "0.0.5",
+  "version": "0.0.6",
   "type": "module",
   "main": "electron/main.mjs",
   "scripts": {
@@ -16,10 +16,12 @@
     "electron:dev": "concurrently -k \"npm:dev:electron\" \"wait-on tcp:3020 && cross-env ELECTRON_RENDERER_URL=http://localhost:3020 electron electron/main.mjs\"",
     "electron:pack": "npm run build && electron-builder --dir",
     "electron:dist": "npm run build && electron-builder",
+    "electron:dist:ci": "npm run build && electron-builder --publish never",
     "base44:link-create": "npx base44@latest link --create --name streamnexus --description \"StreamNexus TV\"",
     "deploy:base44": "npm run build && npx base44@latest site deploy -y",
     "stage:electron-updates": "node scripts/copy-electron-updates-for-upload.mjs",
     "mobile:build": "npm run build && npx cap sync",
+    "mobile:build:android": "npm run build && npx cap sync android",
     "mobile:android:add": "npx cap add android",
     "mobile:ios:add": "npx cap add ios",
     "mobile:android": "npm run mobile:build && npx cap open android",

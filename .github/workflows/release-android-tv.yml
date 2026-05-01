@@ -40,10 +40,10 @@ jobs:
           yes | sdkmanager --licenses || true
           echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
 
-      - name: Build web + Capacitor + debug APK
+      - name: Build web + Capacitor (solo Android) + debug APK
         run: |
           npm ci
-          npm run mobile:build
+          npm run mobile:build:android
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
