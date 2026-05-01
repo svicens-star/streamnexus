@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   android-tv-apk:
@@ -34,10 +35,11 @@ jobs:
         run: |
           set -e
           SDK="$HOME/android-sdk"
-          mkdir -p "$SDK/cmdline-tools"
+          mkdir -p "$SDK/cmdline-tools/latest"
           curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" -o /tmp/clt.zip
           unzip -q /tmp/clt.zip -d /tmp/clt
-          mv /tmp/clt/cmdline-tools "$SDK/cmdline-tools/latest"
+          # El zip trae una carpeta cmdline-tools con bin/, lib/, etc.
+          cp -a /tmp/clt/cmdline-tools/. "$SDK/cmdline-tools/latest/"
           export ANDROID_SDK_ROOT="$SDK"
           export PATH="$PATH:$SDK/cmdline-tools/latest/bin"
           yes | sdkmanager --licenses >/dev/null
@@ -61,6 +63,12 @@ jobs:
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk StreamNexus-TV-install.apk
           ls -la StreamNexus-TV-install.apk
+
+      - name: Upload APK (artefacto Actions; sirve si Release falla)
+        uses: actions/upload-artifact@v4
+        with:
+          name: StreamNexus-TV-install
+          path: StreamNexus-TV-install.apk
 
       - name: Attach APK to GitHub Release
         uses: softprops/action-gh-release@v2

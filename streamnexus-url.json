@@ -10,7 +10,7 @@
   "githubClone": "https://github.com/svicens-star/streamnexus.git",
   "githubReleasesLatest": "https://github.com/svicens-star/streamnexus/releases/latest",
   "apkTvInstalarUltimaVersion": "https://github.com/svicens-star/streamnexus/releases/latest/download/StreamNexus-TV-install.apk",
-  "notaApkTv": "Ese enlace siempre apunta al APK del último release (GitHub Actions: workflow release-android-tv.yml). Creá un tag: git tag v0.0.5 && git push origin v0.0.5",
+  "notaApkTv": "Ese enlace funciona cuando exista un Release con el archivo StreamNexus-TV-install.apk. GitHub: Settings → Actions → General → Workflow permissions → Read and write (si no, el paso de Release falla). Tag: git tag v0.0.x && git push origin v0.0.x. Si falla el Release, en Actions abrís el run exitoso y descargás el artefacto StreamNexus-TV-install.",
   "githubActions": "Con el repo en GitHub: git tag v0.0.5 && git push origin v0.0.5 — se genera un Release con el .exe y latest.yml.",
   "localUrlPc": "http://localhost:3000/",
   "networkUrlMovil": "http://REEMPLAZA_IP_DE_TU_PC:3000/",
