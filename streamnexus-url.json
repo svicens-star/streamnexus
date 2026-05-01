@@ -1,0 +1,18 @@
+{
+  "comandosHechosEnTuPc": "npm run build (OK) | npm run electron:dist (OK) | deploy Base44 requiere TU login en el navegador",
+  "deployWebUnSoloComando": "npm run deploy:base44   (antes: npx base44 login  y  base44 link  si hace falta)",
+  "subirActualizacionesExe": "npm run stage:electron-updates   → genera carpeta base44-electron-upload/electron-updates/ con latest.yml y el Setup .exe para subir al panel Base44 o a otro hosting estático",
+  "webAppBase44": "https://streamnexus-5595b36b.base44.app/",
+  "electronUpdatesFeed": "https://streamnexus-5595b36b.base44.app/electron-updates/",
+  "notaBase44Web": "Desplegá el front con: npm run build y luego base44 site deploy (CLI Base44). Guía: https://docs.base44.com/developers/references/cli/commands/site-deploy",
+  "notaElectronUpdates": "Tras npm run electron:dist, subí a la ruta electron-updates/ del mismo sitio (o hosting estático) estos archivos de la carpeta release/: latest.yml, StreamNexus Setup X.X.X.exe y el .blockmap. Si Base44 solo sirve el SPA y no archivos sueltos, usá GitHub Releases: empujá un tag v* y el workflow .github/workflows/release-windows.yml sube los artefactos; cambiá build.publish en package.json a provider github con tu owner/repo.",
+  "githubRepo": "https://github.com/svicens-star/streamnexus",
+  "githubClone": "https://github.com/svicens-star/streamnexus.git",
+  "githubReleasesLatest": "https://github.com/svicens-star/streamnexus/releases/latest",
+  "githubActions": "Con el repo en GitHub: git tag v0.0.5 && git push origin v0.0.5 — se genera un Release con el .exe y latest.yml.",
+  "localUrlPc": "http://localhost:3000/",
+  "networkUrlMovil": "http://REEMPLAZA_IP_DE_TU_PC:3000/",
+  "previewBuildEnRed": "http://REEMPLAZA_IP_DE_TU_PC:4173/",
+  "androidInstalacion": "En la web (Base44): sección «Instalar la app» en Inicio. Variables Vite: VITE_ANDROID_APK_URL (link directo al .apk), VITE_ANDROID_RELEASES_URL (página GitHub releases/latest), VITE_GOOGLE_PLAY_URL (ficha Play cuando publiques el AAB). Tras cambiar .env, volvé a npm run build y deploy.",
+  "ejemploGithubReleases": "https://github.com/svicens-star/streamnexus/releases/latest"
+}

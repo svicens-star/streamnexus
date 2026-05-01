@@ -1,0 +1,6 @@
+{
+  "name": "streamnexus",
+  "site": {
+    "outputDirectory": "./dist"
+  }
+}

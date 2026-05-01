@@ -1,0 +1,22 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+base44-electron-upload/
+release/
+
+# APK/AAB copiados a la raíz del proyecto (build local)
+/StreamNexus-*.apk
+/StreamNexus-*.aab
+.app.jsonc
+base44/.app.jsonc
+
+# Android release signing (never commit)
+android/keystore.properties
+android/upload-keystore.jks
+android/*.jks
+android/*.keystore

@@ -1,0 +1,43 @@
+# Publica el instalador Windows y latest.yml en GitHub Releases (gratis).
+# Uso: creá un tag, por ejemplo: git tag v0.0.5 && git push origin v0.0.5
+# Luego subí los mismos archivos de release/ a Base44 en .../electron-updates/ si usás ese feed.
+
+name: Release Windows (StreamNexus)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install and build installer
+        run: |
+          npm ci
+          npm run electron:dist
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          generate_release_notes: true
+          files: |
+            release/*.exe
+            release/latest.yml
+            release/*.blockmap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

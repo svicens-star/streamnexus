@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Información del perfil de usuario y sus suscripciones.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "ID único del usuario de Firebase Auth." },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Rol del usuario en la plataforma." },
+        "subscriptionTier": { "type": "string", "enum": ["free", "basic", "premium"], "description": "Nivel de suscripción actual." },
+        "subscriptionExpiry": { "type": "string", "format": "date-time", "description": "Fecha de vencimiento de la suscripción." },
+        "activeDevices": { "type": "array", "items": { "type": "string" }, "description": "Lista de IDs de dispositivos activos (máximo 3)." },
+        "subscribedPacks": { "type": "array", "items": { "type": "string" }, "description": "Lista de packs adicionales contratados." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Channel": {
+      "title": "Channel",
+      "description": "Información de un canal de streaming.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "streamUrl": { "type": "string", "format": "uri" },
+        "thumbnailUrl": { "type": "string", "format": "uri" },
+        "category": { "type": "string" },
+        "tierRequired": { "type": "string", "enum": ["free", "basic", "premium"] }
+      },
+      "required": ["id", "name", "streamUrl"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "Documentos de perfil de usuario."
+    },
+    "/channels/{channelId}": {
+      "schema": "Channel",
+      "description": "Catálogo de canales disponibles."
+    }
+  }
+}

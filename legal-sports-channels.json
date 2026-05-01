@@ -1,0 +1,110 @@
+[
+  {
+    "name": "FIFA+ (Oficial)",
+    "description": "Streaming oficial de FIFA+",
+    "externalUrl": "https://www.plus.fifa.com/",
+    "thumbnailUrl": "https://digitalhub.fifa.com/transform/2f5bd9ef-7848-48ae-b335-6f42f6f0db5d/FIFA_Logo?io=transform:fill,height:512,width:512&quality=75",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "Red Bull TV Live",
+    "description": "Eventos deportivos y extremos en vivo",
+    "externalUrl": "https://www.redbull.com/int-en/live",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Red_Bull_TV_logo.svg/512px-Red_Bull_TV_logo.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "Olympics Channel",
+    "description": "Contenido oficial olímpico",
+    "externalUrl": "https://olympics.com/en/live/",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Olympic_rings_without_rims.svg/512px-Olympic_rings_without_rims.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "Twitch Sports",
+    "description": "Directos deportivos de creadores",
+    "externalUrl": "https://www.twitch.tv/directory/category/sports",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Twitch_logo.svg/512px-Twitch_logo.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "YouTube Sports Live",
+    "description": "Exploración de transmisiones deportivas en vivo",
+    "externalUrl": "https://www.youtube.com/results?search_query=deportes+en+vivo",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/512px-YouTube_full-color_icon_%282017%29.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "DAZN Free",
+    "description": "Sección gratuita de DAZN (según región)",
+    "externalUrl": "https://www.dazn.com/",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/DAZN_Logo.svg/512px-DAZN_Logo.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "LALIGA+",
+    "description": "Plataforma oficial de LALIGA",
+    "externalUrl": "https://www.laliga.com/laligaplus",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/LaLiga_logo.svg/512px-LaLiga_logo.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "NBA App Web",
+    "description": "Contenido oficial NBA",
+    "externalUrl": "https://www.nba.com/",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/en/thumb/0/03/National_Basketball_Association_logo.svg/512px-National_Basketball_Association_logo.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "MLB TV",
+    "description": "Plataforma oficial MLB",
+    "externalUrl": "https://www.mlb.com/live-stream-games",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Major_League_Baseball_logo.svg/512px-Major_League_Baseball_logo.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "NHL TV",
+    "description": "Plataforma oficial NHL",
+    "externalUrl": "https://www.nhl.com/tv",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/en/thumb/3/3a/05_NHL_Shield.svg/512px-05_NHL_Shield.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "UFC",
+    "description": "Sitio oficial UFC",
+    "externalUrl": "https://www.ufc.com/",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/UFC_Logo.svg/512px-UFC_Logo.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  },
+  {
+    "name": "Formula 1",
+    "description": "Sitio oficial F1",
+    "externalUrl": "https://www.formula1.com/",
+    "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/F1.svg/512px-F1.svg.png",
+    "tierRequired": "free",
+    "category": "sports",
+    "deleted": false
+  }
+]

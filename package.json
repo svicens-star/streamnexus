@@ -1,0 +1,97 @@
+{
+  "name": "react-example",
+  "private": true,
+  "version": "0.0.4",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "vite --port=3000 --host=0.0.0.0",
+    "dev:electron": "vite --port=3020 --host=0.0.0.0 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview",
+    "preview:host": "vite preview --host 0.0.0.0 --port 4173 --strictPort",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit",
+    "electron:start": "electron electron/main.mjs",
+    "electron:dev": "concurrently -k \"npm:dev:electron\" \"wait-on tcp:3020 && cross-env ELECTRON_RENDERER_URL=http://localhost:3020 electron electron/main.mjs\"",
+    "electron:pack": "npm run build && electron-builder --dir",
+    "electron:dist": "npm run build && electron-builder",
+    "base44:link-create": "npx base44@latest link --create --name streamnexus --description \"StreamNexus TV\"",
+    "deploy:base44": "npm run build && npx base44@latest site deploy -y",
+    "stage:electron-updates": "node scripts/copy-electron-updates-for-upload.mjs",
+    "mobile:build": "npm run build && npx cap sync",
+    "mobile:android:add": "npx cap add android",
+    "mobile:ios:add": "npx cap add ios",
+    "mobile:android": "npm run mobile:build && npx cap open android",
+    "mobile:ios": "npm run mobile:build && npx cap open ios",
+    "mobile:android:apk": "npm run mobile:build && cd android && gradlew.bat assembleDebug",
+    "mobile:android:keystore": "node scripts/create-android-keystore.mjs",
+    "mobile:android:apk:release": "npm run mobile:build && cd android && gradlew.bat assembleRelease",
+    "mobile:android:bundle": "npm run mobile:build && cd android && gradlew.bat bundleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/app-launcher": "^8.0.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
+    "@google/genai": "^1.29.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-react": "^5.0.4",
+    "clsx": "^2.1.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "electron-updater": "^6.8.3",
+    "express": "^4.21.2",
+    "firebase": "^12.12.0",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.14.1",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.5.0",
+    "video.js": "^8.23.7",
+    "vite": "^6.2.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^41.2.1",
+    "electron-builder": "^26.8.1",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "vite-plugin-pwa": "^1.2.0",
+    "wait-on": "^9.0.5",
+    "workbox-window": "^7.4.0"
+  },
+  "build": {
+    "appId": "com.streamnexus.app",
+    "productName": "StreamNexus",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
+    "forceCodeSigning": false,
+    "directories": {
+      "output": "release"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://streamnexus-5595b36b.base44.app/electron-updates/"
+      }
+    ]
+  }
+}

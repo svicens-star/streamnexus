@@ -1,0 +1,124 @@
+================================================================================
+  STREAMNEXUS — Qué falta y cómo hacerlo (Base44 + actualizaciones + GitHub)
+================================================================================
+
+IMPORTANTE — Siempre entrá primero a la carpeta del proyecto:
+   cd C:\Users\Svice\Downloads\streamnexus
+
+Si "link" dice "No projects available for linking":
+   → Elegiste "proyecto existente" pero en tu cuenta NO hay proyectos BACKEND del CLI.
+   → Creá uno y enlazá en UN solo comando (desde streamnexus):
+        npm run base44:link-create
+     o:
+        npx base44@latest link --create --name streamnexus --description "StreamNexus TV"
+   → Eso crea base44/.app.jsonc y recién ahí funciona: npm run deploy:base44
+
+PARTE A — WEB EN BASE44 (para abrir en el celu / navegador)
+--------------------------------------------------------------------------------
+1) Instalá el CLI de Base44 (una vez):
+   npm install -g base44@latest
+   (o usá: npx base44@latest ... sin instalar global)
+
+2) Iniciá sesión en Base44 (obligatorio, solo vos podés confirmar en el navegador):
+   npx base44@latest login
+   → Te va a mostrar un CÓDIGO y un LINK.
+   → Abrí el link en el Chrome del celu o de la PC e ingresá el código.
+
+3) En la carpeta de este proyecto (streamnexus), enlazá un PROYECTO BACKEND de Base44:
+   npx base44@latest link
+   IMPORTANTE: "link" solo sirve para proyectos creados con el CLI (backend),
+   NO para la app que armaste solo en el editor web. Si tu URL es solo del editor,
+   usá la opción A o B más abajo.
+
+   Opción A — Crear un backend nuevo y asociarlo a esta carpeta:
+   npx base44@latest link --create --name streamnexus --description "StreamNexus"
+   (Te dará un .app.jsonc; el deploy irá a la URL de ESE proyecto.)
+
+   Opción B — Ya tenés un projectId del dashboard (backend):
+   npx base44@latest link --existing --projectId "PEGÁ_EL_ID_AQUÍ"
+
+   Opción C — Tu app vive solo en el editor (como StreamLine) y querés código local:
+   base44 eject   (en otra carpeta vacía; clona la app del editor — ver docs Base44)
+   https://docs.base44.com/developers/backend/overview/start-from-existing-app
+
+4) Generá el sitio y subilo a Base44 con UN comando:
+   npm run deploy:base44
+   (hace: npm run build + base44 site deploy)
+
+5) Abrí en el navegador:
+   https://aspiring-stream-line-play.base44.app/
+   Si no carga, en el panel de Base44 revisá que el deploy haya terminado bien.
+
+
+PARTE B — ACTUALIZACIONES DEL PROGRAMA .EXE (Windows)
+--------------------------------------------------------------------------------
+Tu app de escritorio busca archivos en esta URL (ya está en package.json):
+   https://aspiring-stream-line-play.base44.app/electron-updates/
+
+Pasos cada vez que publiques una versión nueva:
+
+1) Subí la versión en package.json (ejemplo: de 0.0.4 a 0.0.5).
+
+2) En la carpeta del proyecto:
+   npm run electron:dist
+
+3) Prepará una carpeta lista para subir:
+   npm run stage:electron-updates
+
+   Se crea:
+   base44-electron-upload\electron-updates\
+   con: latest.yml + StreamNexus Setup X.X.X.exe + .blockmap
+
+4) Subí TODO el contenido de esa carpeta a Base44:
+   - Si Base44 tiene una sección "Archivos estáticos", "Storage", "Public files"
+     o similar, subí ahí manteniendo la ruta /electron-updates/
+   - Si NO encontrás dónde subir .exe y .yml, Base44 quizá solo sirve el SPA:
+     entonces usá la PARTE C (GitHub Releases).
+
+
+PARTE C — GITHUB (gratis, muy fiable para el .exe y latest.yml)
+--------------------------------------------------------------------------------
+1) Creá un repositorio vacío en github.com (ej: streamnexus).
+
+2) En la carpeta del proyecto (Git Bash o PowerShell):
+   git init
+   git add .
+   git commit -m "StreamNexus"
+   git branch -M main
+   git remote add origin https://github.com/TU_USUARIO/streamnexus.git
+   git push -u origin main
+
+3) En GitHub: Settings → Actions → General → permití workflows (si pide permiso).
+
+4) Creá un tag para que se genere el instalador en la nube:
+   git tag v0.0.5
+   git push origin v0.0.5
+
+5) Esperá a que termine "Actions". En "Releases" vas a ver el .exe y latest.yml.
+
+6) Para que el auto-updater use GitHub en lugar de Base44, en package.json
+   hay que cambiar "build.publish" a provider "github" con tu usuario y repo
+   (pedile eso a quien te ayude con código o buscá "electron-builder publish github").
+
+
+PARTE D — ABRIR EN EL MÓVIL (misma WiFi que la PC)
+--------------------------------------------------------------------------------
+1) En la PC: npm run dev
+
+2) En la PC: ipconfig → anotá la IPv4 del WiFi (ej: 192.168.0.35).
+
+3) En el celu (misma WiFi): Chrome → http://ESA_IP:3000/
+
+4) Si querés la versión "compilada" por red:
+   npm run build
+   npm run preview:host
+   En el celu: http://ESA_IP:4173/
+
+
+Dudas frecuentes
+--------------------------------------------------------------------------------
+• "No veo dónde subir electron-updates en Base44" → usá GitHub Releases (Parte C).
+• Firewall de Windows → permití Node/Vite en red privada cuando pregunte.
+• Versión en la app → arriba a la izquierda debería verse v0.0.x después de instalar.
+
+================================================================================

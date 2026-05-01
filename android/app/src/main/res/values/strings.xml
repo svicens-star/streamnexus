@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">StreamNexus</string>
+    <string name="title_activity_main">StreamNexus</string>
+    <string name="package_name">com.streamnexus.app</string>
+    <string name="custom_url_scheme">com.streamnexus.app</string>
+</resources>
