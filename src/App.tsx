@@ -9,8 +9,20 @@ import videojs from 'video.js';
 import { Capacitor } from '@capacitor/core';
 import { AppLauncher } from '@capacitor/app-launcher';
 import 'video.js/dist/video-js.css';
-import autoPackM3U from '../../playlist.m3u?raw';
+import autoPackM3U from '../playlist.m3u?raw';
 import legalSportsChannelsRaw from '../legal-sports-channels.json?raw';
+import { BRANDS, GENRE_OPTIONS, type BrandMeta } from './data/brands';
+import { HomeRows } from './components/HomeRows';
+import { BrandHub } from './components/BrandHub';
+import { ChannelsBrowser } from './components/ChannelsBrowser';
+import { AppUpdatePanel } from './components/AppUpdatePanel';
+import { MusicPlayer } from './components/MusicPlayer';
+import {
+  saveProgress,
+  subscribeContinueWatching,
+  getItemProgress,
+  type ProgressRecord,
+} from './lib/progress';
 
 // --- Components ---
 
@@ -26,8 +38,6 @@ const STREAMING_APPS = [
   { name: 'LUZU TV', url: 'https://www.youtube.com/@luzutv', color: '#23D4E3', subtitle: 'Streaming en vivo y clips' },
   { name: 'OLGA', url: 'https://www.youtube.com/@olgaenvivo', color: '#8B5CF6', subtitle: 'Canal digital en vivo' },
   { name: 'VORTERIX', url: 'https://www.youtube.com/@Vorterix', color: '#F97316', subtitle: 'Música y actualidad' },
-  { name: 'TWITCH', url: 'https://www.twitch.tv/directory', color: '#9146FF', subtitle: 'Directos de creadores' },
-  { name: 'YOUTUBE LIVE', url: 'https://www.youtube.com/live', color: '#FF0000', subtitle: 'Explorar transmisiones en vivo' },
 ];
 
 const DEFAULT_STREAMING_CHANNELS = [
@@ -36,10 +46,35 @@ const DEFAULT_STREAMING_CHANNELS = [
   { name: 'Vorterix (Directo)', externalUrl: 'https://www.youtube.com/@Vorterix/live', thumbnailUrl: 'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=600', tierRequired: 'free', category: 'streaming', description: 'Música y actualidad en vivo' },
 ];
 
+const DEFAULT_ARGENTINA_LIVE_CHANNELS = [
+  { name: 'TV Pública Argentina', externalUrl: 'https://www.youtube.com/@TVPublicaArgentina/live', thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / señal oficial' },
+  { name: 'Telefe en vivo', externalUrl: 'https://mitelefe.com/vivo/', thumbnailUrl: 'https://images.unsplash.com/photo-1593784991095-a205069470b6?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / aire nacional oficial' },
+  { name: 'eltrece en vivo', externalUrl: 'https://www.eltrecetv.com.ar/vivo/', thumbnailUrl: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / aire nacional oficial' },
+  { name: 'América TV en vivo', externalUrl: 'https://www.americatv.com.ar/vivo', thumbnailUrl: 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / aire nacional oficial' },
+  { name: 'El Nueve en vivo', externalUrl: 'https://www.elnueve.com.ar/vivo', thumbnailUrl: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / aire nacional oficial' },
+  { name: 'TN en vivo', externalUrl: 'https://tn.com.ar/envivo/', thumbnailUrl: 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / noticias oficiales' },
+  { name: 'C5N en vivo', externalUrl: 'https://www.c5n.com/vivo', thumbnailUrl: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / noticias oficiales' },
+  { name: 'A24 en vivo', externalUrl: 'https://www.a24.com/vivo', thumbnailUrl: 'https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / noticias oficiales' },
+  { name: 'LN+ en vivo', externalUrl: 'https://www.lanacion.com.ar/lnmas-en-vivo/', thumbnailUrl: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / noticias oficiales' },
+  { name: 'Crónica HD en vivo', externalUrl: 'https://www.cronica.com.ar/tv', thumbnailUrl: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / noticias oficiales' },
+  { name: 'Canal 26 en vivo', externalUrl: 'https://www.canal26.com/en-vivo', thumbnailUrl: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=600', tierRequired: 'free', category: 'news', description: 'Argentina en vivo / noticias oficiales' },
+];
+
 const DEFAULT_SPORTS_CHANNELS = [
   { name: 'FIFA+ (Oficial)', externalUrl: 'https://www.plus.fifa.com/', thumbnailUrl: 'https://digitalhub.fifa.com/transform/2f5bd9ef-7848-48ae-b335-6f42f6f0db5d/FIFA_Logo?io=transform:fill,height:512,width:512&quality=75', tierRequired: 'free', category: 'sports', description: 'Streaming oficial de FIFA+' },
   { name: 'Red Bull TV', externalUrl: 'https://www.redbull.com/int-en/live', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Red_Bull_TV_logo.svg/512px-Red_Bull_TV_logo.svg.png', tierRequired: 'free', category: 'sports', description: 'Eventos deportivos y shows en vivo' },
-  { name: 'Twitch Sports', externalUrl: 'https://www.twitch.tv/directory/category/sports', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Twitch_logo.svg/512px-Twitch_logo.svg.png', tierRequired: 'free', category: 'sports', description: 'Canales deportivos en vivo' },
+];
+
+const DEFAULT_FOOTBALL_PACK_CHANNELS = [
+  { name: 'Pack Fútbol - TNT Sports', externalUrl: 'https://tntsports.com.ar/', thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600', tierRequired: 'premium', category: 'sports', description: 'Pack Fútbol / acceso oficial para clientes habilitados' },
+  { name: 'Pack Fútbol - ESPN Premium', externalUrl: 'https://www.disneyplus.com/es-ar', thumbnailUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600', tierRequired: 'premium', category: 'sports', description: 'Pack Fútbol / ESPN y Disney+ según suscripción' },
+  { name: 'TyC Sports Play', externalUrl: 'https://play.tycsports.com/', thumbnailUrl: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=600', tierRequired: 'basic', category: 'sports', description: 'Fútbol argentino y deportes / acceso oficial' },
+  { name: 'Deportv', externalUrl: 'https://www.deportv.gob.ar/', thumbnailUrl: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600', tierRequired: 'free', category: 'sports', description: 'Deportes argentinos / señal oficial' },
+  { name: 'AFA Play', externalUrl: 'https://www.afaplay.com/', thumbnailUrl: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=600', tierRequired: 'basic', category: 'sports', description: 'Fútbol argentino / plataforma oficial AFA' },
+  { name: 'Liga Profesional', externalUrl: 'https://www.ligaprofesional.ar/', thumbnailUrl: 'https://images.unsplash.com/photo-1518091043644-c1d4457512c6?w=600', tierRequired: 'free', category: 'sports', description: 'Fútbol argentino / fixture, noticias y contenido oficial' },
+  { name: 'Flow - Pack Fútbol', externalUrl: 'https://www.flow.com.ar/', thumbnailUrl: 'https://images.unsplash.com/photo-1551958219-acbc608c6377?w=600', tierRequired: 'premium', category: 'sports', description: 'Pack Fútbol / abrir plataforma oficial Flow' },
+  { name: 'DGO - Fútbol Argentino', externalUrl: 'https://www.directvgo.com/ar/', thumbnailUrl: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=600', tierRequired: 'premium', category: 'sports', description: 'Pack Fútbol / abrir plataforma oficial DGO' },
+  { name: 'Telecentro Play - Pack Fútbol', externalUrl: 'https://telecentro.com.ar/play', thumbnailUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600', tierRequired: 'premium', category: 'sports', description: 'Pack Fútbol / abrir plataforma oficial Telecentro Play' },
 ];
 
 /** Pluto, Plex, Runtime: categoría apps (pestaña Aplicaciones), no Series ni Películas. */
@@ -262,9 +297,24 @@ const hashString = (input: string) => {
   return Math.abs(hash).toString(36);
 };
 
+const stripChannelNoise = (value: unknown) =>
+  String(value || '')
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\bwww\.\S+/gi, ' ')
+    .replace(/tvg-logo\s*=\s*["']?[^"'\s]+["']?/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+const cleanChannelRecord = (channel: any) => ({
+  ...channel,
+  name: stripChannelNoise(channel?.name) || channel?.name || 'Canal en vivo',
+  description: stripChannelNoise(channel?.description),
+  currentProgram: stripChannelNoise(channel?.currentProgram || channel?.nowPlaying || ''),
+});
+
 const inferCategory = (groupTitleRaw: string, channelName: string): ChannelCategory => {
   const text = `${groupTitleRaw} ${channelName}`.toLowerCase();
-  if (text.includes('sport') || text.includes('futbol') || text.includes('deport')) return 'sports';
+  if (text.includes('sport') || text.includes('futbol') || text.includes('fútbol') || text.includes('soccer') || text.includes('deport')) return 'sports';
   if (text.includes('movie') || text.includes('cine') || text.includes('film')) return 'movies';
   if (text.includes('series')) return 'series';
   if (text.includes('kids') || text.includes('infantil') || text.includes('animation')) return 'kids';
@@ -286,7 +336,8 @@ const parseM3U = (m3uText: string, descriptionPrefix: string) => {
       const nameMatch = line.match(/,(.*)$/);
       const logoMatch = line.match(/tvg-logo="(.*?)"/);
       const groupMatch = line.match(/group-title="(.*?)"/);
-      const channelName = nameMatch ? nameMatch[1].trim() : 'Canal Desconocido';
+      const rawChannelName = nameMatch ? nameMatch[1].trim() : 'Canal Desconocido';
+      const channelName = stripChannelNoise(rawChannelName) || rawChannelName || 'Canal Desconocido';
       const groupTitle = groupMatch ? groupMatch[1].trim() : 'General';
       currentChannel = {
         name: channelName,
@@ -359,6 +410,12 @@ const VideoPlayer = ({
   zapCurrentId,
   onZapChannel,
   channelLabel,
+  itemId,
+  episodeKey,
+  initialPosition,
+  uid,
+  thumbnailUrl,
+  isLive = false,
 }: {
   src: string;
   sources?: string[];
@@ -367,9 +424,16 @@ const VideoPlayer = ({
   zapCurrentId?: string;
   onZapChannel?: (ch: any) => void;
   channelLabel?: string;
+  itemId?: string;
+  episodeKey?: string | null;
+  initialPosition?: number;
+  uid?: string | null;
+  thumbnailUrl?: string;
+  isLive?: boolean;
 }) => {
   const videoRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
+  const lastSavedRef = useRef<number>(0);
   const [error, setError] = useState<string | null>(null);
   const candidateSources = [src, ...sources.filter((s) => s !== src)];
   const [sourceIndex, setSourceIndex] = useState(0);
@@ -377,6 +441,29 @@ const VideoPlayer = ({
   useEffect(() => {
     setSourceIndex(0);
   }, [src]);
+
+  const flushProgress = useCallback(
+    (force = false) => {
+      const player = playerRef.current;
+      if (!player || isLive || !uid || !itemId) return;
+      try {
+        const currentTime = Number(player.currentTime?.() || 0);
+        const duration = Number(player.duration?.() || 0);
+        if (!Number.isFinite(currentTime) || !Number.isFinite(duration) || duration < 5) return;
+        const now = Date.now();
+        if (!force && now - lastSavedRef.current < 5000) return;
+        lastSavedRef.current = now;
+        void saveProgress(uid, itemId, currentTime, duration, {
+          episodeKey: episodeKey || null,
+          itemName: channelLabel,
+          thumbnailUrl,
+        });
+      } catch {
+        /* ignore */
+      }
+    },
+    [uid, itemId, episodeKey, isLive, channelLabel, thumbnailUrl]
+  );
 
   useEffect(() => {
     const canZap = Boolean(zapChannels.length > 1 && onZapChannel && zapCurrentId);
@@ -450,6 +537,25 @@ const VideoPlayer = ({
       }]
     });
 
+    if (!isLive && itemId && uid && initialPosition && initialPosition > 5) {
+      player.one('loadedmetadata', () => {
+        try {
+          const dur = Number(player.duration?.() || 0);
+          if (Number.isFinite(dur) && dur > initialPosition + 5) {
+            player.currentTime(initialPosition);
+          }
+        } catch {
+          /* ignore */
+        }
+      });
+    }
+
+    if (!isLive && itemId && uid) {
+      player.on('timeupdate', () => flushProgress(false));
+      player.on('pause', () => flushProgress(true));
+      player.on('ended', () => flushProgress(true));
+    }
+
     player.on('error', () => {
       const err = player.error();
       console.error('VideoJS Error:', err);
@@ -473,6 +579,7 @@ const VideoPlayer = ({
     });
 
     return () => {
+      flushProgress(true);
       if (playerRef.current) {
         playerRef.current.dispose();
         playerRef.current = null;
@@ -481,7 +588,7 @@ const VideoPlayer = ({
         videoRef.current.innerHTML = '';
       }
     };
-  }, [src, sourceIndex]);
+  }, [src, sourceIndex, flushProgress, initialPosition, isLive, itemId, uid]);
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 md:p-12">
@@ -651,12 +758,9 @@ const Navbar = ({ onTabChange, activeTab, onLoginClick }: { onTabChange: (tab: s
   const isAdminUser = profile?.role === 'admin' || (user?.email || '').toLowerCase() === 's.vicens.1160@gmail.com';
   const navItems = [
     { id: 'home', label: 'Inicio' },
-    { id: 'channels', label: 'TV en Vivo' },
-    { id: 'series', label: 'Series' },
-    { id: 'movies', label: 'Películas' },
-    { id: 'streaming', label: 'Streaming' },
-    { id: 'apps', label: 'Aplicaciones' },
-    { id: 'ai', label: 'Asistente AI' },
+    { id: 'music', label: 'Música' },
+    { id: 'platforms', label: 'Hubs' },
+    { id: 'channels', label: 'En Vivo' },
   ];
 
   const goTab = (id: string) => {
@@ -666,7 +770,7 @@ const Navbar = ({ onTabChange, activeTab, onLoginClick }: { onTabChange: (tab: s
 
   return (
     <nav
-      className="fixed top-0 w-full z-50 bg-bg/80 backdrop-blur-2xl border-b border-white/5 px-4 sm:px-8 min-h-[70px] flex items-center justify-between gap-3"
+      className="fixed top-0 w-full z-50 bg-[#07080d]/85 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-8 min-h-[70px] flex items-center justify-between gap-3"
       style={{paddingTop: 'max(12px, env(safe-area-inset-top))'}}
     >
       <div className="flex flex-col gap-0.5 cursor-pointer group shrink-0" onClick={() => goTab('home')}>
@@ -675,7 +779,7 @@ const Navbar = ({ onTabChange, activeTab, onLoginClick }: { onTabChange: (tab: s
           <span className="text-lg sm:text-xl font-black tracking-tighter text-white group-hover:text-accent transition-colors uppercase">STREAMNEXUS</span>
         </div>
         <span className="text-[9px] font-bold text-text-dim uppercase tracking-widest pl-5 hidden sm:block">
-          v{import.meta.env.VITE_APP_VERSION}
+          TV, cine y fútbol en un solo lugar
         </span>
       </div>
 
@@ -1037,7 +1141,9 @@ const ChannelCard = ({
       </div>
       <div className="px-1">
         <h3 className="text-white font-black text-[13px] mb-0.5 group-hover:text-accent transition-colors uppercase tracking-tighter truncate leading-tight">{channel.name}</h3>
-        <p className="text-text-dim text-[9px] uppercase font-bold tracking-widest opacity-40 line-clamp-1 italic">{channel.description || 'Premium Streaming Content'}</p>
+        <p className="text-text-dim text-[9px] uppercase font-bold tracking-widest opacity-40 line-clamp-1 italic">
+          {channel.currentProgram || channel.nowPlaying || channel.description || 'Premium Streaming Content'}
+        </p>
       </div>
     </motion.div>
   );
@@ -1103,6 +1209,119 @@ const AIAsistant = () => {
   );
 };
 
+interface EpisodeEntry {
+  season: number;
+  episode: number;
+  title: string;
+  streamUrl: string;
+  duration?: number;
+  thumbnailUrl?: string;
+}
+
+const EpisodesEditor: React.FC<{
+  episodes: EpisodeEntry[];
+  onChange: (next: EpisodeEntry[]) => void;
+}> = ({ episodes, onChange }) => {
+  const [draft, setDraft] = useState<EpisodeEntry>({
+    season: 1,
+    episode: (episodes?.length || 0) + 1,
+    title: '',
+    streamUrl: '',
+  });
+
+  const addEpisode = () => {
+    if (!draft.title.trim() || !draft.streamUrl.trim()) return;
+    const next = [...(episodes || []), draft].sort(
+      (a, b) => a.season - b.season || a.episode - b.episode
+    );
+    onChange(next);
+    setDraft({
+      season: draft.season,
+      episode: draft.episode + 1,
+      title: '',
+      streamUrl: '',
+    });
+  };
+
+  const removeEpisode = (idx: number) => {
+    const next = episodes.filter((_, i) => i !== idx);
+    onChange(next);
+  };
+
+  return (
+    <div className="border border-white/10 rounded-2xl p-4 bg-black/30">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] font-black text-text-dim uppercase tracking-widest">
+          Episodios ({episodes?.length || 0})
+        </span>
+      </div>
+      {episodes?.length > 0 && (
+        <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+          {episodes.map((ep, idx) => (
+            <div
+              key={`${ep.season}-${ep.episode}-${idx}`}
+              className="flex items-center justify-between gap-2 bg-surface-light px-3 py-2 rounded-lg"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-black text-white truncate">
+                  S{ep.season}E{ep.episode} · {ep.title}
+                </p>
+                <p className="text-[9px] text-text-dim truncate">{ep.streamUrl}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeEpisode(idx)}
+                className="text-text-dim hover:text-danger"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <input
+          type="number"
+          min={1}
+          value={draft.season}
+          onChange={(e) => setDraft({ ...draft, season: Number(e.target.value) || 1 })}
+          placeholder="Temporada"
+          className="bg-surface-light border border-surface-light rounded-lg p-2 text-white outline-none text-sm"
+        />
+        <input
+          type="number"
+          min={1}
+          value={draft.episode}
+          onChange={(e) => setDraft({ ...draft, episode: Number(e.target.value) || 1 })}
+          placeholder="Episodio"
+          className="bg-surface-light border border-surface-light rounded-lg p-2 text-white outline-none text-sm"
+        />
+      </div>
+      <input
+        type="text"
+        value={draft.title}
+        onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+        placeholder="Título del episodio"
+        className="w-full bg-surface-light border border-surface-light rounded-lg p-2 text-white outline-none text-sm mb-2"
+      />
+      <input
+        type="text"
+        value={draft.streamUrl}
+        onChange={(e) => setDraft({ ...draft, streamUrl: e.target.value })}
+        placeholder="URL del episodio (HLS / MP4)"
+        className="w-full bg-surface-light border border-surface-light rounded-lg p-2 text-white outline-none text-sm mb-2"
+      />
+      <button
+        type="button"
+        onClick={addEpisode}
+        className="w-full bg-white/10 hover:bg-accent hover:text-bg text-white py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all"
+      >
+        Añadir episodio
+      </button>
+    </div>
+  );
+};
+
 const AdminPanel = ({ onClose, activeSection, onSectionChange, onInitChannels }: { onClose: () => void, activeSection: 'users' | 'channels' | 'plans', onSectionChange: (s: 'users' | 'channels' | 'plans') => void, onInitChannels: () => Promise<void> }) => {
   const [users, setUsers] = useState<any[]>([]);
   const [channels, setChannels] = useState<any[]>([]);
@@ -1110,7 +1329,21 @@ const AdminPanel = ({ onClose, activeSection, onSectionChange, onInitChannels }:
   const [showAddChannel, setShowAddChannel] = useState(false);
   const [editingChannel, setEditingChannel] = useState<any>(null);
   const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', tier: 'free', role: 'user' });
-  const [newChannel, setNewChannel] = useState({ name: '', description: '', streamUrl: '', thumbnailUrl: '', tierRequired: 'free', category: 'news' });
+  const [newChannel, setNewChannel] = useState<any>({
+    name: '',
+    description: '',
+    currentProgram: '',
+    streamUrl: '',
+    thumbnailUrl: '',
+    backdropUrl: '',
+    tierRequired: 'free',
+    category: 'news',
+    mediaType: 'live',
+    platforms: [],
+    genres: [],
+    runtime: 0,
+    episodes: [],
+  });
   const [importCountry, setImportCountry] = useState('ar');
   const [m3uText, setM3uText] = useState('');
   const [showM3uImport, setShowM3uImport] = useState(false);
@@ -1282,7 +1515,21 @@ const AdminPanel = ({ onClose, activeSection, onSectionChange, onInitChannels }:
       await setDoc(doc(db, 'channels', id), newChannel);
       toast.success('Canal creado');
       setShowAddChannel(false);
-      setNewChannel({ name: '', description: '', streamUrl: '', thumbnailUrl: '', tierRequired: 'free', category: 'news' });
+      setNewChannel({
+        name: '',
+        description: '',
+        currentProgram: '',
+        streamUrl: '',
+        thumbnailUrl: '',
+        backdropUrl: '',
+        tierRequired: 'free',
+        category: 'news',
+        mediaType: 'live',
+        platforms: [],
+        genres: [],
+        runtime: 0,
+        episodes: [],
+      });
     } catch (error) {
       toast.error('Error al crear canal');
     }
@@ -1895,6 +2142,20 @@ const AdminPanel = ({ onClose, activeSection, onSectionChange, onInitChannels }:
                   />
                 </div>
                 <div>
+                  <label className="text-[10px] font-bold text-text-dim uppercase mb-1 block">En emisión ahora</label>
+                  <input
+                    type="text"
+                    value={(editingChannel ? editingChannel.currentProgram : newChannel.currentProgram) || ''}
+                    onChange={(e) =>
+                      editingChannel
+                        ? setEditingChannel({ ...editingChannel, currentProgram: e.target.value })
+                        : setNewChannel({ ...newChannel, currentProgram: e.target.value })
+                    }
+                    placeholder="Ej: El Cantando"
+                    className="w-full bg-surface-light border border-surface-light rounded-lg p-3 text-white focus:border-accent outline-none"
+                  />
+                </div>
+                <div>
                   <label className="text-[10px] font-bold text-text-dim uppercase mb-1 block">URL de Streaming (M3U8)</label>
                   <input 
                     type="text" 
@@ -1939,6 +2200,135 @@ const AdminPanel = ({ onClose, activeSection, onSectionChange, onInitChannels }:
                     <option value="premium">PREMIUM</option>
                   </select>
                 </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-text-dim uppercase mb-1 block">Tipo de contenido</label>
+                  <select
+                    value={(editingChannel ? editingChannel.mediaType : newChannel.mediaType) || 'live'}
+                    onChange={(e) =>
+                      editingChannel
+                        ? setEditingChannel({ ...editingChannel, mediaType: e.target.value })
+                        : setNewChannel({ ...newChannel, mediaType: e.target.value })
+                    }
+                    className="w-full bg-surface-light border border-surface-light rounded-lg p-3 text-white outline-none"
+                  >
+                    <option value="live">EN VIVO (Canal)</option>
+                    <option value="movie">PELÍCULA</option>
+                    <option value="series">SERIE</option>
+                  </select>
+                </div>
+
+                {((editingChannel ? editingChannel.mediaType : newChannel.mediaType) === 'movie') && (
+                  <div>
+                    <label className="text-[10px] font-bold text-text-dim uppercase mb-1 block">Duración (segundos)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={(editingChannel ? editingChannel.runtime : newChannel.runtime) || 0}
+                      onChange={(e) =>
+                        editingChannel
+                          ? setEditingChannel({ ...editingChannel, runtime: Number(e.target.value) || 0 })
+                          : setNewChannel({ ...newChannel, runtime: Number(e.target.value) || 0 })
+                      }
+                      className="w-full bg-surface-light border border-surface-light rounded-lg p-3 text-white outline-none"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[10px] font-bold text-text-dim uppercase mb-2 block">Hubs / Plataformas</label>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {BRANDS.map((b) => {
+                      const current: string[] = (editingChannel ? editingChannel.platforms : newChannel.platforms) || [];
+                      const selected = current.includes(b.id);
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => {
+                            const next = selected
+                              ? current.filter((p) => p !== b.id)
+                              : [...current, b.id];
+                            if (editingChannel) {
+                              setEditingChannel({ ...editingChannel, platforms: next });
+                            } else {
+                              setNewChannel({ ...newChannel, platforms: next });
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                            selected
+                              ? 'bg-accent text-bg border-accent'
+                              : 'bg-surface-light text-text-dim border-white/10 hover:text-white'
+                          }`}
+                        >
+                          {b.shortLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-text-dim uppercase mb-2 block">Géneros</label>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {GENRE_OPTIONS.map((g) => {
+                      const current: string[] = (editingChannel ? editingChannel.genres : newChannel.genres) || [];
+                      const selected = current.includes(g.id);
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => {
+                            const next = selected
+                              ? current.filter((p) => p !== g.id)
+                              : [...current, g.id];
+                            if (editingChannel) {
+                              setEditingChannel({ ...editingChannel, genres: next });
+                            } else {
+                              setNewChannel({ ...newChannel, genres: next });
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                            selected
+                              ? 'bg-white text-bg border-white'
+                              : 'bg-surface-light text-text-dim border-white/10 hover:text-white'
+                          }`}
+                        >
+                          {g.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-text-dim uppercase mb-1 block">Imagen de fondo (Backdrop)</label>
+                  <input
+                    type="text"
+                    value={(editingChannel ? editingChannel.backdropUrl : newChannel.backdropUrl) || ''}
+                    onChange={(e) =>
+                      editingChannel
+                        ? setEditingChannel({ ...editingChannel, backdropUrl: e.target.value })
+                        : setNewChannel({ ...newChannel, backdropUrl: e.target.value })
+                    }
+                    placeholder="URL para el hero del hub (opcional)"
+                    className="w-full bg-surface-light border border-surface-light rounded-lg p-3 text-white outline-none"
+                  />
+                </div>
+
+                {((editingChannel ? editingChannel.mediaType : newChannel.mediaType) === 'series') && (
+                  <EpisodesEditor
+                    episodes={
+                      (editingChannel ? editingChannel.episodes : newChannel.episodes) || []
+                    }
+                    onChange={(eps) =>
+                      editingChannel
+                        ? setEditingChannel({ ...editingChannel, episodes: eps })
+                        : setNewChannel({ ...newChannel, episodes: eps })
+                    }
+                  />
+                )}
+
                 <button 
                   type="submit"
                   className="w-full mt-4 bg-accent text-bg py-4 rounded-xl font-bold hover:opacity-90 transition-all"
@@ -1964,7 +2354,7 @@ const ExternalPlatformPlayer = ({ url, onClose }: { url: string, onClose: () => 
     /* ignore */
   }
   const strictEmbedBlockHint =
-    /netflix|disneyplus|starplus|spotify|open\.spotify|max\.com|primevideo|hbomax|plex\.tv|pluto\.tv|twitch\.tv/i.test(url);
+    /disneyplus|starplus|plex\.tv|pluto\.tv|flow\.com|directvgo|telecentro/i.test(url);
 
   return (
     <motion.div 
@@ -1995,7 +2385,7 @@ const ExternalPlatformPlayer = ({ url, onClose }: { url: string, onClose: () => 
       </div>
 
       <div className="px-4 py-2 bg-black/60 border-b border-white/5 text-[10px] text-text-dim text-center leading-snug">
-        Todo se abre aquí (sin pestaña nueva). Si ves pantalla en blanco, el sitio no permite vista embebida: es una limitación del proveedor, no de StreamNexus.
+        StreamNexus intenta abrir todo dentro del reproductor. Si un proveedor bloquea iframe, se mostrará la vista web embebida hasta donde el sitio lo permita.
       </div>
       
       <div className="flex-1 relative bg-surface min-h-0">
@@ -2011,7 +2401,7 @@ const ExternalPlatformPlayer = ({ url, onClose }: { url: string, onClose: () => 
         {strictEmbedBlockHint && (
            <div className="absolute top-3 left-1/2 -translate-x-1/2 max-w-[95vw] bg-black/85 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 pointer-events-none">
                 <p className="text-[9px] font-bold text-white uppercase tracking-widest text-center leading-relaxed">
-                 Si no carga: muchas plataformas bloquean iframe. YouTube watch se convierte a embed automáticamente; otras pueden quedar en blanco.
+                 Si no carga, ese proveedor no permite iframe. Los canales con stream directo se abren siempre en el player interno.
               </p>
            </div>
         )}
@@ -2025,23 +2415,11 @@ const Sidebar = ({ onOpenPlatform }: { onOpenPlatform: (url: string) => void }) 
     <div className="glass-card">
       <span className="text-[10px] uppercase font-bold tracking-widest text-text-dim mb-4 block">Accesos Rápidos</span>
       <div className="grid grid-cols-2 gap-3">
-        <button className="flex items-center gap-2 bg-surface-light p-3 rounded-lg hover:bg-surface transition-colors text-xs font-bold" onClick={() => onOpenPlatform('https://www.netflix.com')}>
-          <div className="w-4 h-4 bg-[#E50914] rounded-sm" /> Netflix
-        </button>
         <button className="flex items-center gap-2 bg-surface-light p-3 rounded-lg hover:bg-surface transition-colors text-xs font-bold" onClick={() => onOpenPlatform('https://www.disneyplus.com')}>
           <div className="w-4 h-4 bg-[#0063E5] rounded-sm" /> Disney+
         </button>
         <button className="flex items-center gap-2 bg-surface-light p-3 rounded-lg hover:bg-surface transition-colors text-xs font-bold" onClick={() => onOpenPlatform('https://www.starplus.com')}>
           <div className="w-4 h-4 bg-[#00A8E1] rounded-sm" /> Star+
-        </button>
-        <button className="flex items-center gap-2 bg-surface-light p-3 rounded-lg hover:bg-surface transition-colors text-xs font-bold" onClick={() => onOpenPlatform('https://www.hbomax.com')}>
-          <div className="w-4 h-4 bg-[#5822B4] rounded-sm" /> HBO Max
-        </button>
-        <button className="flex items-center gap-2 bg-surface-light p-3 rounded-lg hover:bg-surface transition-colors text-xs font-bold" onClick={() => onOpenPlatform('https://www.spotify.com')}>
-          <div className="w-4 h-4 bg-[#1DB954] rounded-sm" /> Spotify
-        </button>
-        <button className="flex items-center gap-2 bg-surface-light p-3 rounded-lg hover:bg-surface transition-colors text-xs font-bold" onClick={() => onOpenPlatform('https://www.youtube.com')}>
-          <div className="w-4 h-4 bg-[#FF0000] rounded-sm" /> YouTube
         </button>
       </div>
     </div>
@@ -2054,10 +2432,13 @@ export default function App() {
   const [tvOnlyCompatible, setTvOnlyCompatible] = useState(false);
   const [channels, setChannels] = useState<any[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<any>(null);
+  const [selectedInitialPosition, setSelectedInitialPosition] = useState<number>(0);
   const [externalUrl, setExternalUrl] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminSection, setAdminSection] = useState<'users' | 'channels' | 'plans'>('users');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [activeBrand, setActiveBrand] = useState<BrandMeta | null>(null);
+  const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
   const { profile, loading, isAuthReady, user } = useAuth();
   const isAdminUser = profile?.role === 'admin' || (user?.email || '').toLowerCase() === 's.vicens.1160@gmail.com';
   const dynamicApps = channels.filter((c: any) => c.category === 'apps' && Boolean(c.externalUrl));
@@ -2095,6 +2476,35 @@ export default function App() {
     [channels, tvOnlyCompatible]
   );
 
+  useEffect(() => {
+    if (!user?.uid) {
+      setProgressRecords([]);
+      return;
+    }
+    const unsub = subscribeContinueWatching(user.uid, (records) => {
+      setProgressRecords(records);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  const progressByItemId = useMemo(() => {
+    const map: Record<string, ProgressRecord> = {};
+    for (const r of progressRecords) {
+      const key = r.itemId;
+      if (!map[key] || (map[key].updatedAt || 0) < (r.updatedAt || 0)) {
+        map[key] = r;
+      }
+    }
+    return map;
+  }, [progressRecords]);
+
+  const continueWatchingItems = useMemo(() => {
+    const byId = new Map(channels.map((c: any) => [c.id, c]));
+    return progressRecords
+      .map((r) => byId.get(r.itemId))
+      .filter(Boolean) as any[];
+  }, [progressRecords, channels]);
+
   const isProtectedTab = (tab: string) => tab !== 'home';
 
   const handleTabChange = (tab: string) => {
@@ -2108,39 +2518,31 @@ export default function App() {
 
   const openExternalPlatform = async (url: string) => {
     if (!user) {
-      toast.error('Debes iniciar sesión para abrir plataformas.');
+      toast.error('Debes iniciar sesión para abrir este contenido.');
       setIsAuthModalOpen(true);
       return;
     }
     const normalized = normalizeExternalPlayerUrl(url);
-    const isAndroidNative = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
-    if (isAndroidNative) {
-      const target = ANDROID_APP_TARGETS.find((t) => t.test.test(normalized));
-      if (target) {
-        try {
-          for (const pkg of target.packages) {
-            const can = await AppLauncher.canOpenUrl({ url: pkg });
-            if (can.value) {
-              await AppLauncher.openUrl({ url: pkg });
-              toast.success(`Abriendo app oficial: ${target.label}`);
-              return;
-            }
-          }
-          await AppLauncher.openUrl({ url: target.storeUrl });
-          toast.info(`${target.label} no está instalada. Se abrió Play Store.`);
-          return;
-        } catch {
-          // fallback to in-app iframe
-        }
-      }
-    }
     setExternalUrl(normalized);
   };
 
-  const handlePlayChannel = (channel: any) => {
+  const handlePlayChannel = async (channel: any) => {
     if (!channel) return;
-    if (channel.externalUrl) {
-      openExternalPlatform(channel.externalUrl);
+    const alternatives = Array.isArray(channel.streamAlternatives)
+      ? channel.streamAlternatives.filter(Boolean)
+      : [];
+    const bestAlt =
+      alternatives.find((u: string) => String(u).startsWith('https://')) ||
+      alternatives[0] ||
+      '';
+    const playableChannel = {
+      ...channel,
+      streamUrl: channel.streamUrl || bestAlt,
+      streamAlternatives: alternatives,
+    };
+
+    if (playableChannel.externalUrl && !playableChannel.streamUrl) {
+      openExternalPlatform(playableChannel.externalUrl);
       return;
     }
     if (!user) {
@@ -2160,13 +2562,35 @@ export default function App() {
     const tiers = { free: 0, basic: 1, premium: 2 };
     const userTier = profile?.subscriptionTier || 'free';
     
-    if (tiers[userTier] < tiers[channel.tierRequired as keyof typeof tiers]) {
-      toast.error(`Este canal requiere suscripción ${channel.tierRequired.toUpperCase()}`);
+    if (tiers[userTier] < tiers[playableChannel.tierRequired as keyof typeof tiers]) {
+      toast.error(`Este canal requiere suscripción ${playableChannel.tierRequired.toUpperCase()}`);
       return;
     }
-    
-    setSelectedChannel(channel);
+
+    let resumePos = 0;
+    const isLiveCh =
+      playableChannel.mediaType === 'live' || (!playableChannel.mediaType && !playableChannel.runtime);
+    if (!isLiveCh && user?.uid && playableChannel?.id) {
+      try {
+        const rec = await getItemProgress(user.uid, playableChannel.id);
+        if (rec && rec.percent < 0.95 && rec.position > 5) {
+          resumePos = rec.position;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    setSelectedInitialPosition(resumePos);
+    setSelectedChannel(playableChannel);
   };
+
+  const handleOpenOfficialApp = useCallback(
+    (brand: BrandMeta) => {
+      openExternalPlatform(brand.webUrl);
+    },
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    [user]
+  );
 
   const handleDeleteLiveChannel = async (channel: any) => {
     if (!isAdminUser) return;
@@ -2211,7 +2635,21 @@ export default function App() {
             .map(String);
           return streamCandidates.some(isLikelyIosPlayableStream);
         })
-        .map(normalizeChannelForAppsSection);
+        .map(normalizeChannelForAppsSection)
+        .map((ch: any) => {
+          const alternatives = Array.isArray(ch.streamAlternatives)
+            ? ch.streamAlternatives.filter(Boolean)
+            : [];
+          const bestAlt =
+            alternatives.find((u: string) => String(u).startsWith('https://')) ||
+            alternatives[0] ||
+            '';
+          return cleanChannelRecord({
+            ...ch,
+            streamUrl: ch.streamUrl || bestAlt,
+            streamAlternatives: alternatives,
+          });
+        });
       setChannels(channelList);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'channels');
@@ -2273,8 +2711,10 @@ export default function App() {
       const autoPackChannels = parseM3U(autoPackM3U, 'Pack Auto');
       const defaults = [
         ...DEFAULT_APPS_CHANNELS,
+        ...DEFAULT_ARGENTINA_LIVE_CHANNELS,
         ...DEFAULT_STREAMING_CHANNELS,
         ...DEFAULT_SPORTS_CHANNELS,
+        ...DEFAULT_FOOTBALL_PACK_CHANNELS,
       ].map((item) => ({
         ...item,
         docId: `${toSlug(item.name)}-${hashString(item.externalUrl || item.name)}`,
@@ -2320,6 +2760,27 @@ export default function App() {
             zapCurrentId={selectedChannel.id}
             onZapChannel={handleZapChannel}
             channelLabel={selectedChannel.name}
+            itemId={selectedChannel.id}
+            initialPosition={selectedInitialPosition}
+            uid={user?.uid}
+            thumbnailUrl={selectedChannel.thumbnailUrl}
+            isLive={
+              selectedChannel.mediaType === 'live' ||
+              (!selectedChannel.mediaType && !selectedChannel.runtime)
+            }
+          />
+        )}
+        {activeBrand && (
+          <BrandHub
+            brand={activeBrand}
+            items={channels}
+            progressByItemId={progressByItemId}
+            onPlay={(item) => {
+              const ch = channels.find((c: any) => c.id === item.id) || item;
+              handlePlayChannel(ch);
+            }}
+            onClose={() => setActiveBrand(null)}
+            onOpenOfficial={handleOpenOfficialApp}
           />
         )}
         {externalUrl && (
@@ -2347,82 +2808,21 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <div className="px-6">
-                <Hero onPlayFeatured={() => handlePlayChannel(channels.find(c => c.name.includes('HBO')) || channels[0])} />
-              </div>
-
+              <HomeRows
+                items={channels}
+                progressByItemId={progressByItemId}
+                continueWatching={continueWatchingItems}
+                onPlay={handlePlayChannel}
+                onOpenBrand={(b) => setActiveBrand(b)}
+                onOpenSection={handleTabChange}
+              />
               <InstallStreamNexusSection />
-
-              {/* Quick Apps Access */}
-              <section className="px-12 py-10">
-                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                  {[
-                    { name: 'NETFLIX', color: '#E50914', url: 'https://www.netflix.com' },
-                    { name: 'DISNEY+', color: '#0063E5', url: 'https://www.disneyplus.com' },
-                    { name: 'STAR+', color: '#00A8E1', url: 'https://www.starplus.com' },
-                    { name: 'MAX', color: '#5822B4', url: 'https://www.max.com' },
-                    { name: 'SPOTIFY', color: '#1DB954', url: 'https://www.spotify.com' },
-                    { name: 'YOUTUBE', color: '#FF0000', url: 'https://www.youtube.com' },
-                    { name: 'TWITCH', color: '#9146FF', url: 'https://www.twitch.tv' },
-                    { name: 'PRIME', color: '#00A8E1', url: 'https://www.primevideo.com' },
-                  ].map(app => (
-                    <button 
-                      key={app.name}
-                      onClick={() => openExternalPlatform(app.url)}
-                      className="flex-shrink-0 px-6 py-3 rounded-full bg-surface border border-surface-light hover:border-white/40 hover:bg-surface-light transition-all flex items-center gap-3 group"
-                    >
-                       <div className="w-4 h-4 rounded-full" style={{ backgroundColor: app.color }} />
-                       <span className="text-xs font-black tracking-widest">{app.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              {/* Featured Channels Row */}
-              <section className="px-12 py-12">
-                <div className="flex justify-between items-end mb-8">
-                  <div>
-                    <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2 italic">Destacados Hoy</h2>
-                    <div className="flex gap-2">
-                      <div className="w-12 h-1 bg-accent rounded-full" />
-                      <div className="w-4 h-1 bg-surface-light rounded-full" />
-                    </div>
-                  </div>
-                  <button onClick={() => setActiveTab('channels')} className="text-xs font-bold text-accent hover:underline uppercase tracking-widest">Explorar Todo</button>
-                </div>
-                <div className="overflow-x-auto pb-6 scrollbar-hide">
-                  <div className="flex gap-6">
-                    {channels.slice(0, 8).map(channel => (
-                      <div key={channel.id} className="w-[320px] flex-shrink-0">
-                        <ChannelCard channel={channel} onPlay={() => handlePlayChannel(channel)} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-
-              {/* Movies Horizontal Grid */}
-              <section className="px-12 py-12 bg-surface/20">
-                <div className="flex justify-between items-end mb-8">
-                  <div>
-                    <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2 italic">Cine & Series Premium</h2>
-                    <div className="flex gap-2">
-                      <div className="w-12 h-1 bg-white rounded-full" />
-                      <div className="w-4 h-1 bg-surface-light rounded-full" />
-                    </div>
-                  </div>
-                  <button onClick={() => setActiveTab('movies')} className="text-xs font-bold text-accent hover:underline uppercase tracking-widest">Ver Catálogo</button>
-                </div>
-                <div className="overflow-x-auto pb-6 scrollbar-hide">
-                  <div className="flex gap-6">
-                    {moviesForDisplay.slice(0, 8).map(channel => (
-                      <div key={channel.id} className="w-[180px] flex-shrink-0">
-                         <ChannelCard channel={channel} onPlay={handlePlayChannel} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
+              {isAdminUser && (
+                <AppUpdatePanel
+                  fallbackApkUrl={PUBLIC_GITHUB_TV_APK_LATEST}
+                  releasesUrl={PUBLIC_GITHUB_RELEASES_LATEST}
+                />
+              )}
             </motion.div>
           )}
 
@@ -2432,156 +2832,142 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="px-12 py-16"
             >
-              <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-8">
-                <div>
-                  <h2 className="text-4xl font-extrabold tracking-tighter">TV en Vivo</h2>
-                  <p className="text-text-dim text-sm mt-2 max-w-xl">
-                    Filtrá por categoría. Con el reproductor abierto, usá el control remoto: flechas o repág / avpág para cambiar de canal; Escape para cerrar.
-                  </p>
-                </div>
-              </div>
+              <ChannelsBrowser
+                items={channelsForTvTab}
+                progressByItemId={progressByItemId}
+                onPlay={handlePlayChannel}
+                canDelete={isAdminUser}
+                onDelete={handleDeleteLiveChannel}
+                tvOnlyToggle={{
+                  value: tvOnlyCompatible,
+                  onChange: (v) => setTvOnlyCompatible(v),
+                }}
+              />
+            </motion.div>
+          )}
 
-              <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
-                <p className="text-[11px] text-text-dim uppercase tracking-widest font-bold">
-                  Modo TV Pro
-                </p>
+          {activeTab === 'platforms' && (
+            <motion.div 
+              key="platforms"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="px-6 lg:px-12 py-12"
+            >
+              <h2 className="text-3xl lg:text-5xl font-black tracking-tighter italic uppercase mb-3">Hubs</h2>
+              <p className="text-text-dim text-sm mb-10 max-w-2xl">
+                Accesos ordenados dentro de StreamNexus. La música ahora se reproduce dentro de la app,
+                sin abrir Spotify, YouTube ni otras plataformas externas.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
                 <button
                   type="button"
-                  onClick={() => setTvOnlyCompatible((v) => !v)}
-                  className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border transition-all ${
-                    tvOnlyCompatible
-                      ? 'bg-success/20 text-success border-success/40'
-                      : 'bg-surface-light text-text-dim border-white/10 hover:text-white'
-                  }`}
+                  onClick={() => setActiveTab('music')}
+                  className="relative aspect-video rounded-3xl overflow-hidden border border-white/10 hover:border-white/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-accent transition-all shadow-2xl text-left group"
+                  style={{ background: 'linear-gradient(135deg, #00F0FF 0%, #101827 100%)' }}
                 >
-                  {tvOnlyCompatible ? 'Solo compatibles TV: ON' : 'Solo compatibles TV: OFF'}
+                  <img
+                    src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=900"
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover opacity-25 group-hover:opacity-40 transition-opacity"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 flex items-end p-5">
+                    <div>
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg mb-3 bg-accent text-bg font-black">
+                        M
+                      </div>
+                      <h3 className="text-2xl font-black tracking-tighter text-white">
+                        Música
+                      </h3>
+                      <p className="text-[10px] text-white/70 font-black uppercase tracking-widest mt-1">
+                        Reproductor interno
+                      </p>
+                    </div>
+                  </div>
                 </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2 mb-12">
-                <button
-                  type="button"
-                  onClick={() => setLiveTvCategory('all')}
-                  className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-                    liveTvCategory === 'all'
-                      ? 'bg-white text-bg shadow-lg'
-                      : 'bg-surface-light text-text-dim hover:text-white border border-white/10'
-                  }`}
-                >
-                  Todos ({channelsForTvTab.length})
-                </button>
-                {LIVE_TV_CATEGORY_ORDER.map(({ id, label }) => {
-                  const n = liveTvCategoryCounts[id] || 0;
-                  if (n === 0) return null;
+                {BRANDS.map((b) => {
+                  const count = channels.filter((c: any) =>
+                    Array.isArray(c.platforms) && c.platforms.includes(b.id)
+                  ).length;
                   return (
                     <button
-                      key={id}
+                      key={b.id}
                       type="button"
-                      onClick={() => setLiveTvCategory(id)}
-                      className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-                        liveTvCategory === id
-                          ? 'bg-accent text-bg shadow-lg'
-                          : 'bg-surface-light text-text-dim hover:text-white border border-white/10'
-                      }`}
+                      onClick={() => setActiveBrand(b)}
+                      className="relative aspect-video rounded-3xl overflow-hidden border border-white/10 hover:border-white/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-accent transition-all shadow-2xl text-left group"
+                      style={{ background: b.gradient }}
                     >
-                      {label} ({n})
+                      <img
+                        src={b.backdropUrl}
+                        alt={b.label}
+                        className="absolute inset-0 w-full h-full object-cover opacity-25 group-hover:opacity-40 transition-opacity"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 flex items-end p-5">
+                        <div>
+                          <div
+                            className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg mb-3"
+                            style={{ backgroundColor: b.color }}
+                          >
+                            <span className="text-white font-black text-xl">
+                              {b.shortLabel[0]}
+                            </span>
+                          </div>
+                          <h3 className="text-2xl font-black tracking-tighter text-white">
+                            {b.label}
+                          </h3>
+                          <p className="text-[10px] text-white/70 font-black uppercase tracking-widest mt-1">
+                            {count > 0 ? `${count} en tu catálogo` : 'Hub interno'}
+                          </p>
+                        </div>
+                      </div>
                     </button>
                   );
                 })}
               </div>
-              
-              {liveTvCategory === 'all'
-                ? LIVE_TV_CATEGORY_ORDER.map(({ id: cat, label }) => {
-                    const catChannels = channelsForTvTab.filter((c) => c.category === cat);
-                    if (catChannels.length === 0) return null;
-
-                    return (
-                      <div key={cat} className="mb-16">
-                        <div className="flex items-center gap-4 mb-8">
-                          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{label}</h3>
-                          <div className="flex-1 h-px bg-surface-light" />
+              {dynamicApps.length > 0 && (
+                <div className="mt-16">
+                  <h3 className="text-xl font-black tracking-tighter italic uppercase mb-5">
+                    Otros accesos
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {dynamicApps.map((app: any) => (
+                      <button
+                        key={app.id}
+                        onClick={() => openExternalPlatform(app.externalUrl)}
+                        className="relative aspect-video rounded-2xl overflow-hidden border border-surface-light hover:border-white/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-all shadow-2xl text-left"
+                        style={{ background: 'linear-gradient(135deg, rgba(0,255,255,0.18) 0%, #000 100%)' }}
+                      >
+                        <img
+                          src={app.thumbnailUrl}
+                          alt={app.name}
+                          className="absolute inset-0 w-full h-full object-cover opacity-40"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 to-transparent">
+                          <h4 className="text-sm font-black tracking-tighter">{app.name}</h4>
+                          <p className="text-[9px] text-white/60 font-bold uppercase tracking-widest">
+                            Abrir
+                          </p>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                          {catChannels.map((channel) => (
-                            <div key={channel.id}>
-                              <ChannelCard
-                                channel={channel}
-                                onPlay={handlePlayChannel}
-                                canDelete={isAdminUser}
-                                onDelete={handleDeleteLiveChannel}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })
-                : (() => {
-                    const catChannels = channelsForTvTab.filter((c) => c.category === liveTvCategory);
-                    const sectionLabel = LIVE_TV_CATEGORY_ORDER.find((x) => x.id === liveTvCategory)?.label || liveTvCategory;
-                    if (catChannels.length === 0) {
-                      return (
-                        <div className="py-20 text-center text-text-dim">
-                          No hay canales en esta categoría.
-                        </div>
-                      );
-                    }
-                    return (
-                      <div>
-                        <div className="flex items-center gap-4 mb-8">
-                          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{sectionLabel}</h3>
-                          <div className="flex-1 h-px bg-surface-light" />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                          {catChannels.map((channel) => (
-                            <div key={channel.id}>
-                              <ChannelCard
-                                channel={channel}
-                                onPlay={handlePlayChannel}
-                                canDelete={isAdminUser}
-                                onDelete={handleDeleteLiveChannel}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
-          {activeTab === 'streaming' && (
-            <motion.div 
-              key="streaming"
+          {activeTab === 'music' && (
+            <motion.div
+              key="music"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="px-12 py-16"
             >
-              <h2 className="text-4xl font-extrabold mb-10 tracking-tighter">Streaming Digital</h2>
-              <p className="text-text-dim text-sm mb-10 max-w-2xl">
-                Esta sección muestra solo plataformas/canales digitales (Luzu, OLGA, Twitch, etc.). La TV tradicional queda en la pestaña de Canales.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {STREAMING_APPS.map((app) => (
-                  <button
-                    key={app.name}
-                    onClick={() => openExternalPlatform(app.url)}
-                    className="relative aspect-video rounded-2xl overflow-hidden border border-surface-light group hover:border-white/50 transition-all shadow-2xl text-left"
-                    style={{ background: `linear-gradient(135deg, ${app.color}44 0%, #000 100%)` }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-5xl font-black opacity-10">{app.name[0]}</span>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-                      <h3 className="text-xl font-black tracking-tighter">{app.name}</h3>
-                      <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">{app.subtitle}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <MusicPlayer />
             </motion.div>
           )}
 
@@ -2591,37 +2977,19 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="px-12 py-16"
             >
-              <h2 className="text-4xl font-extrabold mb-10 tracking-tighter uppercase italic">Películas Premium</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                {moviesForDisplay.map(channel => (
-                  <div key={channel.id} className="group cursor-pointer">
-                    <div className="relative aspect-[2/3] rounded-2xl overflow-hidden mb-3 border border-white/5 group-hover:border-accent transition-all ring-accent group-hover:ring-2 shadow-2xl bg-surface">
-                       <img 
-                         src={channel.thumbnailUrl} 
-                         alt={channel.name} 
-                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                         referrerPolicy="no-referrer"
-                       />
-                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60" />
-                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                          <button 
-                            onClick={() => handlePlayChannel(channel)}
-                            className="bg-accent text-bg w-12 h-12 rounded-full flex items-center justify-center shadow-2xl scale-75 group-hover:scale-100 transition-transform"
-                          >
-                             <Play size={20} fill="currentColor" />
-                          </button>
-                       </div>
-                    </div>
-                    <h4 className="font-bold text-xs truncate uppercase tracking-tighter text-white/90 group-hover:text-accent transition-colors">{channel.name}</h4>
-                    <p className="text-[9px] text-text-dim uppercase font-black tracking-widest mt-1 opacity-50">Cine / {channel.tierRequired}</p>
-                  </div>
-                ))}
-                {moviesForDisplay.length === 0 && (
-                  <div className="col-span-full py-20 text-center text-text-dim">No hay películas disponibles en este momento.</div>
+              <ChannelsBrowser
+                items={channels.filter(
+                  (c: any) =>
+                    c.mediaType === 'movie' ||
+                    (!c.mediaType && c.category === 'movies' &&
+                      !excludedMovieNames.has(String(c.name || '').toLowerCase()))
                 )}
-              </div>
+                progressByItemId={progressByItemId}
+                onPlay={handlePlayChannel}
+                canDelete={isAdminUser}
+                onDelete={handleDeleteLiveChannel}
+              />
             </motion.div>
           )}
 
@@ -2631,95 +2999,17 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="px-12 py-16"
             >
-              <h2 className="text-4xl font-extrabold mb-10 tracking-tighter uppercase italic">Series Originales</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                {channels.filter(c => c.category === 'series').map(channel => (
-                  <div key={channel.id} className="group cursor-pointer">
-                    <div className="relative aspect-[2/3] rounded-2xl overflow-hidden mb-3 border border-white/5 group-hover:border-accent transition-all ring-accent group-hover:ring-2 shadow-2xl bg-surface">
-                       <img 
-                         src={channel.thumbnailUrl} 
-                         alt={channel.name} 
-                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                         referrerPolicy="no-referrer"
-                       />
-                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60" />
-                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                          <button 
-                            onClick={() => handlePlayChannel(channel)}
-                            className="bg-accent text-bg w-12 h-12 rounded-full flex items-center justify-center shadow-2xl scale-75 group-hover:scale-100 transition-transform"
-                          >
-                             <Play size={20} fill="currentColor" />
-                          </button>
-                       </div>
-                    </div>
-                    <h4 className="font-bold text-xs truncate uppercase tracking-tighter text-white/90 group-hover:text-accent transition-colors">{channel.name}</h4>
-                    <p className="text-[9px] text-text-dim uppercase font-black tracking-widest mt-1 opacity-50">Serie / {channel.tierRequired}</p>
-                  </div>
-                ))}
-                {channels.filter(c => c.category === 'series').length === 0 && (
-                   <div className="col-span-full py-20 text-center text-text-dim">No hay series disponibles en este momento.</div>
+              <ChannelsBrowser
+                items={channels.filter(
+                  (c: any) =>
+                    c.mediaType === 'series' || (!c.mediaType && c.category === 'series')
                 )}
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'apps' && (
-            <motion.div 
-              key="apps"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="px-12 py-16"
-            >
-              <h2 className="text-4xl font-extrabold mb-10 tracking-tighter">Tus Aplicaciones</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {dynamicApps.map(app => (
-                  <button 
-                    key={app.id}
-                    onClick={() => openExternalPlatform(app.externalUrl)}
-                    className="relative aspect-video rounded-2xl overflow-hidden border border-surface-light group hover:border-white/50 transition-all shadow-2xl"
-                    style={{ background: 'linear-gradient(135deg, rgba(0,255,255,0.20) 0%, #000 100%)' }}
-                  >
-                    <img
-                      src={app.thumbnailUrl}
-                      alt={app.name}
-                      className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/90 to-transparent">
-                      <h3 className="text-xl font-black tracking-tighter">{app.name}</h3>
-                      <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">Abrir Aplicación</p>
-                    </div>
-                  </button>
-                ))}
-                {[
-                  { name: 'NETFLIX', url: 'https://www.netflix.com', color: '#E50914', icon: 'N' },
-                  { name: 'DISNEY+', url: 'https://www.disneyplus.com', color: '#0063E5', icon: 'D' },
-                  { name: 'STAR+', url: 'https://www.starplus.com', color: '#00A8E1', icon: 'S' },
-                  { name: 'HBO MAX', url: 'https://www.max.com', color: '#5822B4', icon: 'M' },
-                  { name: 'SPOTIFY', url: 'https://www.spotify.com', color: '#1DB954', icon: 'S' },
-                  { name: 'YOUTUBE', url: 'https://www.youtube.com', color: '#FF0000', icon: 'Y' },
-                  { name: 'TWITCH', url: 'https://www.twitch.tv', color: '#9146FF', icon: 'T' },
-                  { name: 'PRIME VIDEO', url: 'https://www.primevideo.com', color: '#00A8E1', icon: 'P' },
-                ].map(app => (
-                  <button 
-                    key={app.name}
-                    onClick={() => openExternalPlatform(app.url)}
-                    className="relative aspect-video rounded-2xl overflow-hidden border border-surface-light group hover:border-white/50 transition-all shadow-2xl"
-                    style={{ background: `linear-gradient(135deg, ${app.color}44 0%, #000 100%)` }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                       <span className="text-6xl font-black opacity-10">{app.icon}</span>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-                       <h3 className="text-xl font-black tracking-tighter">{app.name}</h3>
-                       <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Abrir Plataforma</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                progressByItemId={progressByItemId}
+                onPlay={handlePlayChannel}
+                canDelete={isAdminUser}
+                onDelete={handleDeleteLiveChannel}
+              />
             </motion.div>
           )}
 

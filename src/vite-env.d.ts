@@ -9,6 +9,10 @@ interface ImportMetaEnv {
   readonly VITE_ANDROID_RELEASES_URL?: string;
   /** Enlace a la ficha en Google Play (cuando publiques el AAB). */
   readonly VITE_GOOGLE_PLAY_URL?: string;
+  /** JSON público con latestVersion + apkDownloadUrl (p. ej. en public/ o jsDelivr). */
+  readonly VITE_APP_UPDATE_MANIFEST_URL?: string;
+  /** API key de YouTube Data API v3 para buscador de música interno. */
+  readonly VITE_YT_API_KEY?: string;
 }
 
 interface ImportMeta {
