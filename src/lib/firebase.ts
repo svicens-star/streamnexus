@@ -1,6 +1,18 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, collection, query, where, onSnapshot, deleteDoc, getDocs } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  deleteDoc,
+  getDocs,
+} from 'firebase/firestore';
 
 // Intentamos cargar la configuración real si existe
 let firebaseConfig: any = {
@@ -36,7 +48,11 @@ const firestoreDatabaseId =
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
+
+const firestoreSettings = { localCache: persistentLocalCache() };
+export const db = firestoreDatabaseId
+  ? initializeFirestore(app, firestoreSettings, firestoreDatabaseId)
+  : initializeFirestore(app, firestoreSettings);
 export const googleProvider = new GoogleAuthProvider();
 
 export { 

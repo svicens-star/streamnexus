@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import {
   Search,
   Keyboard,
@@ -103,17 +104,40 @@ interface ChannelGuideCardProps {
   onPlay: (item: MediaCardItem) => void;
   canDelete?: boolean;
   onDelete?: (item: MediaCardItem) => void;
+  gridIndex: number;
+  gridCols: number;
+  gridCount: number;
 }
+
+const focusGridCard = (index: number) => {
+  const el = document.querySelector(`[data-channel-grid-index="${index}"]`) as HTMLElement | null;
+  el?.focus();
+};
 
 const ChannelGuideCard: React.FC<ChannelGuideCardProps> = ({
   item,
   onPlay,
   canDelete,
   onDelete,
+  gridIndex,
+  gridCols,
+  gridCount,
 }) => {
   const isExternal = Boolean(item.externalUrl && !item.streamUrl);
   const sourceLabel = item.streamUrl ? 'Player interno' : isExternal ? 'Vista web' : 'Catálogo';
   const tier = item.tierRequired || 'free';
+
+  const onGridKeyDown = (e: React.KeyboardEvent) => {
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    e.preventDefault();
+    let next = gridIndex;
+    if (e.key === 'ArrowDown') next = gridIndex + gridCols;
+    else if (e.key === 'ArrowUp') next = gridIndex - gridCols;
+    else if (e.key === 'ArrowRight') next = gridIndex + 1;
+    else if (e.key === 'ArrowLeft') next = gridIndex - 1;
+    next = Math.max(0, Math.min(gridCount - 1, next));
+    if (next !== gridIndex) focusGridCard(next);
+  };
 
   return (
     <article className="group relative overflow-hidden rounded-[1.6rem] border border-white/10 bg-[#101116] shadow-2xl transition-all hover:-translate-y-1 hover:border-accent/50 focus-within:border-accent">
@@ -121,6 +145,7 @@ const ChannelGuideCard: React.FC<ChannelGuideCardProps> = ({
       <div className="relative flex min-h-[190px] gap-4 p-4">
         <button
           type="button"
+          tabIndex={-1}
           onClick={() => onPlay(item)}
           className="flex h-28 w-28 shrink-0 items-center justify-center rounded-3xl bg-white p-4 shadow-xl transition-transform group-hover:scale-[1.03] focus:outline-none focus-visible:ring-4 focus-visible:ring-accent"
           aria-label={`Ver ${item.name}`}
@@ -174,6 +199,9 @@ const ChannelGuideCard: React.FC<ChannelGuideCardProps> = ({
               )}
               <button
                 type="button"
+                data-channel-grid-index={gridIndex}
+                tabIndex={0}
+                onKeyDown={onGridKeyDown}
                 onClick={() => onPlay(item)}
                 className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-bg transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
@@ -200,6 +228,21 @@ export const ChannelsBrowser: React.FC<ChannelsBrowserProps> = ({
   const [showKeyboard, setShowKeyboard] = useState(false);
   const [category, setCategory] = useState<ChannelsCategoryId>('all');
   const [sort, setSort] = useState<'name' | 'category' | 'tier'>('name');
+  const [gridCols, setGridCols] = useState(1);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const isNative = Capacitor.isNativePlatform();
+
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      if (w >= 1536) setGridCols(3);
+      else if (w >= 1024) setGridCols(2);
+      else setGridCols(1);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = norm(search);
@@ -320,10 +363,18 @@ export const ChannelsBrowser: React.FC<ChannelsBrowserProps> = ({
               className="absolute left-5 top-1/2 -translate-y-1/2 text-text-dim"
             />
             <input
+              ref={searchInputRef}
               type="text"
+              inputMode={isNative && !showKeyboard ? 'none' : 'search'}
               value={search}
+              readOnly={isNative && !showKeyboard}
               onChange={(e) => setSearch(e.target.value)}
-              onFocus={() => setShowKeyboard(true)}
+              onFocus={(e) => {
+                if (isNative && !showKeyboard) {
+                  e.preventDefault();
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
               placeholder="Buscar canal, película o serie..."
               className="w-full bg-surface border border-white/10 rounded-2xl pl-14 pr-32 h-14 text-base text-white outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent transition-all"
             />
@@ -338,7 +389,17 @@ export const ChannelsBrowser: React.FC<ChannelsBrowserProps> = ({
             )}
             <button
               type="button"
-              onClick={() => setShowKeyboard((s) => !s)}
+              onClick={() => {
+                setShowKeyboard((s) => {
+                  const next = !s;
+                  if (next) {
+                    window.setTimeout(() => searchInputRef.current?.focus(), 80);
+                  } else {
+                    searchInputRef.current?.blur();
+                  }
+                  return next;
+                });
+              }}
               className={`absolute right-3 top-1/2 -translate-y-1/2 px-3 h-10 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-all ${
                 showKeyboard
                   ? 'bg-accent text-bg'
@@ -429,13 +490,16 @@ export const ChannelsBrowser: React.FC<ChannelsBrowserProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-5 lg:gap-6">
-          {filtered.map((item) => (
+          {filtered.map((item, idx) => (
             <ChannelGuideCard
               key={item.id}
               item={item}
               onPlay={onPlay}
               canDelete={canDelete}
               onDelete={onDelete}
+              gridIndex={idx}
+              gridCols={gridCols}
+              gridCount={filtered.length}
             />
           ))}
         </div>

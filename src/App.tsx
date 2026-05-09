@@ -191,6 +191,9 @@ const isChannelTvCompatible = (channel: any) => {
   const streamCandidates = [channel.streamUrl, ...(channel.streamAlternatives || [])]
     .filter(Boolean)
     .map(String);
+  if (Capacitor.isNativePlatform()) {
+    return streamCandidates.length > 0;
+  }
   return streamCandidates.some(isLikelyTvCompatibleStream);
 };
 
@@ -500,13 +503,11 @@ const VideoPlayer = ({
     const currentSrc = candidateSources[sourceIndex] || src;
     const isHttpSource = currentSrc.startsWith('http:');
 
-    if (isHttps && isHttpSource) {
+    if (isHttps && isHttpSource && !Capacitor.isNativePlatform()) {
       if (sourceIndex < candidateSources.length - 1) {
         setSourceIndex((idx) => idx + 1);
       } else {
-        setError(
-          'Esta señal usa HTTP y el navegador la bloquea dentro de una web HTTPS (por ejemplo Base44). En un reproductor externo o VLC suele abrir; aquí probá otra fuente HTTPS o usá la app de escritorio StreamNexus en Windows.'
-        );
+        setError('Canal no disponible.');
       }
       return;
     }
@@ -522,7 +523,8 @@ const VideoPlayer = ({
       autoplay: true,
       controls: true,
       responsive: true,
-      fluid: true,
+      fluid: false,
+      fill: true,
       liveui: true,
       html5: {
         vhs: {
@@ -556,6 +558,19 @@ const VideoPlayer = ({
       player.on('ended', () => flushProgress(true));
     }
 
+    if (Capacitor.isNativePlatform()) {
+      player.one('playing', () => {
+        try {
+          const p = player as { requestFullscreen?: () => Promise<void> };
+          if (typeof p.requestFullscreen === 'function') {
+            void p.requestFullscreen();
+          }
+        } catch {
+          /* ignore */
+        }
+      });
+    }
+
     player.on('error', () => {
       const err = player.error();
       console.error('VideoJS Error:', err);
@@ -563,19 +578,7 @@ const VideoPlayer = ({
         setSourceIndex((idx) => idx + 1);
         return;
       }
-      if (err?.code === 4) {
-        setError(
-          'Formato no soportado o señal caída. Se agotaron las fuentes alternativas. Muchas listas IPTV abren en VLC o en TV pero el navegador exige HTTPS y formatos compatibles.'
-        );
-      } else if (err?.code === 2) {
-        setError(
-          'Error de red o CORS: el servidor no permite leer la señal desde esta página. Probá otra señal o otra fuente del mismo canal.'
-        );
-      } else if (err?.code === 3) {
-        setError('Error de decodificación. El navegador no puede procesar este formato.');
-      } else {
-        setError('La señal no está disponible en este momento. Prueba con otra opción del catálogo.');
-      }
+      setError('Canal no disponible.');
     });
 
     return () => {
@@ -591,80 +594,61 @@ const VideoPlayer = ({
   }, [src, sourceIndex, flushProgress, initialPosition, isLive, itemId, uid]);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 md:p-12">
-      <button 
+    <div className="fixed inset-0 z-[100] flex flex-col bg-black">
+      <button
+        type="button"
         onClick={onClose}
-        className="absolute top-8 right-8 text-white/60 hover:text-white z-[110]"
+        className="absolute top-4 right-4 z-[120] rounded-full bg-black/60 p-3 text-white/80 hover:text-white hover:bg-black/80"
+        aria-label="Cerrar reproductor"
       >
-        <X size={32} />
+        <X size={28} />
       </button>
-      <div className="w-full max-w-6xl aspect-video bg-black rounded-2xl overflow-hidden border border-surface-light shadow-2xl relative flex items-center justify-center">
+      <div className="flex min-h-0 flex-1 w-full items-stretch justify-center pt-2">
         {error ? (
-          <div className="text-center p-8 max-w-lg bg-surface/40 backdrop-blur-3xl rounded-[40px] border border-white/5 border-t-white/10 shadow-2xl">
-            <div className="w-20 h-20 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+          <div className="flex max-w-lg flex-col items-center justify-center px-6 text-center">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-danger/15">
               <AlertTriangle className="text-danger" size={40} />
             </div>
-            <h3 className="text-3xl font-black text-white mb-6 uppercase tracking-tighter italic">Error de Reproducción</h3>
-            <p className="text-text-dim text-sm mb-10 leading-relaxed font-medium">{error}</p>
-            <div className="flex flex-col gap-4">
+            <h3 className="mb-4 text-2xl font-black uppercase tracking-tight text-white">Canal no disponible</h3>
+            <p className="mb-8 text-sm font-medium leading-relaxed text-text-dim">{error}</p>
+            <div className="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
               <button
                 type="button"
                 onClick={() => {
-                  const u = candidateSources[sourceIndex] || src;
-                  if (!navigator.clipboard?.writeText) {
-                    toast.error('Tu navegador no permite copiar desde aquí.');
-                    return;
+                  if (sourceIndex < candidateSources.length - 1) {
+                    setSourceIndex((idx) => idx + 1);
                   }
-                  void navigator.clipboard
-                    .writeText(u)
-                    .then(() =>
-                      toast.success('Enlace copiado', {
-                        description: 'Pegalo en VLC, en la TV o en StreamNexus para Windows.',
-                      })
-                    )
-                    .catch(() => toast.error('No se pudo copiar. Copiá la URL manualmente desde el panel admin si la tenés.'));
                 }}
-                className="bg-accent text-bg px-10 py-5 rounded-[20px] font-black text-xs hover:scale-105 transition-all text-center uppercase tracking-widest shadow-xl shadow-accent/20"
+                disabled={sourceIndex >= candidateSources.length - 1}
+                className="rounded-2xl border border-white/15 bg-white/10 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-white/15 disabled:opacity-30"
               >
-                Copiar enlace de la señal
+                Probar otra señal
               </button>
-              <div className="grid grid-cols-2 gap-4">
-                <button 
-                  onClick={() => {
-                    if (sourceIndex < candidateSources.length - 1) {
-                      setSourceIndex((idx) => idx + 1);
-                    }
-                  }}
-                  disabled={sourceIndex >= candidateSources.length - 1}
-                  className="px-6 py-4 rounded-[15px] font-black text-[10px] transition-all uppercase tracking-widest bg-white/5 text-white border border-white/10 hover:bg-white/10 disabled:opacity-30"
-                >
-                  Probar otra señal
-                </button>
-                <button 
-                  onClick={onClose}
-                  className="bg-white/5 text-white px-6 py-4 rounded-[15px] font-black text-[10px] hover:bg-danger hover:text-white transition-all uppercase tracking-widest border border-white/10"
-                >
-                  Cerrar
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-2xl bg-accent px-6 py-4 text-[10px] font-black uppercase tracking-widest text-bg transition-all hover:opacity-90"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         ) : (
-          <div className="w-full h-full relative">
-            <div ref={videoRef} className="w-full h-full" />
-            <div className="absolute bottom-8 left-8 z-[110] flex flex-col gap-2 items-start">
+          <div className="relative h-full w-full min-h-0">
+            <div ref={videoRef} className="absolute inset-0 h-full w-full min-h-0" />
+            <div className="pointer-events-none absolute bottom-6 left-6 z-[110] flex max-w-[min(92vw,28rem)] flex-col gap-2">
               {channelLabel && (
-                <span className="px-4 py-2 rounded-lg font-bold text-[11px] bg-accent/90 text-bg max-w-[90vw] truncate">
+                <span className="truncate rounded-lg bg-accent/90 px-4 py-2 text-[11px] font-bold text-bg">
                   {channelLabel}
                 </span>
               )}
               <div className="flex flex-wrap gap-2">
-                <span className="px-4 py-2 rounded-lg font-bold text-[10px] bg-white/10 text-white">
-                  FUENTE {Math.min(sourceIndex + 1, candidateSources.length)}/{candidateSources.length}
+                <span className="rounded-lg bg-black/70 px-4 py-2 text-[10px] font-bold text-white backdrop-blur-sm">
+                  Fuente {Math.min(sourceIndex + 1, candidateSources.length)}/{candidateSources.length}
                 </span>
                 {zapChannels.length > 1 && (
-                  <span className="px-4 py-2 rounded-lg font-bold text-[10px] bg-white/10 text-white/90">
-                    Mando: ◀ ▲ ▼ ▶ · Pág · salir
+                  <span className="rounded-lg bg-black/70 px-4 py-2 text-[10px] font-bold text-white/90 backdrop-blur-sm">
+                    Mando: ◀ ▲ ▼ ▶ · salir
                   </span>
                 )}
               </div>
@@ -2353,9 +2337,6 @@ const ExternalPlatformPlayer = ({ url, onClose }: { url: string, onClose: () => 
   } catch {
     /* ignore */
   }
-  const strictEmbedBlockHint =
-    /disneyplus|starplus|plex\.tv|pluto\.tv|flow\.com|directvgo|telecentro/i.test(url);
-
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -2385,7 +2366,7 @@ const ExternalPlatformPlayer = ({ url, onClose }: { url: string, onClose: () => 
       </div>
 
       <div className="px-4 py-2 bg-black/60 border-b border-white/5 text-[10px] text-text-dim text-center leading-snug">
-        StreamNexus intenta abrir todo dentro del reproductor. Si un proveedor bloquea iframe, se mostrará la vista web embebida hasta donde el sitio lo permita.
+        Reproducción dentro de StreamNexus.
       </div>
       
       <div className="flex-1 relative bg-surface min-h-0">
@@ -2398,13 +2379,6 @@ const ExternalPlatformPlayer = ({ url, onClose }: { url: string, onClose: () => 
           title="App Player"
           referrerPolicy="no-referrer-when-downgrade"
         />
-        {strictEmbedBlockHint && (
-           <div className="absolute top-3 left-1/2 -translate-x-1/2 max-w-[95vw] bg-black/85 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 pointer-events-none">
-                <p className="text-[9px] font-bold text-white uppercase tracking-widest text-center leading-relaxed">
-                 Si no carga, ese proveedor no permite iframe. Los canales con stream directo se abren siempre en el player interno.
-              </p>
-           </div>
-        )}
       </div>
     </motion.div>
   );
@@ -2522,6 +2496,10 @@ export default function App() {
       setIsAuthModalOpen(true);
       return;
     }
+    if (Capacitor.isNativePlatform()) {
+      toast.error('Canal no disponible');
+      return;
+    }
     const normalized = normalizeExternalPlayerUrl(url);
     setExternalUrl(normalized);
   };
@@ -2542,6 +2520,10 @@ export default function App() {
     };
 
     if (playableChannel.externalUrl && !playableChannel.streamUrl) {
+      if (Capacitor.isNativePlatform()) {
+        toast.error('Canal no disponible');
+        return;
+      }
       openExternalPlatform(playableChannel.externalUrl);
       return;
     }
@@ -2623,8 +2605,7 @@ export default function App() {
         .filter((ch: any) => {
           if (ch.deleted) return false;
           if (!Boolean(ch.streamUrl || ch.externalUrl)) return false;
-          // Mostrar solo canales saludables o no diagnosticados en admin.
-          if (ch.health && ch.health.ok === false) return false;
+          if (ch.health && ch.health.ok === false && !Capacitor.isNativePlatform()) return false;
           return true;
         })
         .filter((ch: any) => {
