@@ -1,7 +1,7 @@
 {
   "name": "react-example",
   "private": true,
-  "version": "0.0.15",
+  "version": "0.0.16",
   "type": "module",
   "main": "electron/main.mjs",
   "scripts": {
@@ -19,6 +19,8 @@
     "electron:dist:ci": "npm run build && electron-builder --publish never",
     "base44:link-create": "npx base44@latest link --create --name streamnexus --description \"StreamNexus TV\"",
     "deploy:base44": "npm run build && npx base44@latest site deploy -y",
+    "deploy:base44:functions": "npx base44@latest functions deploy",
+    "deploy:base44:all": "npm run build && npx base44@latest site deploy -y && npx base44@latest functions deploy",
     "stage:electron-updates": "node scripts/copy-electron-updates-for-upload.mjs",
     "mobile:build": "npm run build && npx cap sync",
     "mobile:build:android": "npm run build && npx cap sync android",

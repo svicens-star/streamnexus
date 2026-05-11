@@ -23,8 +23,17 @@ import {
   getItemProgress,
   type ProgressRecord,
 } from './lib/progress';
+import {
+  attachVhsHttpProxyOnRequest,
+  getHlsHttpProxyPrefix,
+  shouldProxyHttpStreams,
+  wrapHttpStreamUrlWithProxy,
+} from './lib/stream-proxy';
 
 // --- Components ---
+
+/** Referencia estable para `streamAlternatives ?? []` y evitar re-montar VideoPlayer cada render. */
+const EMPTY_STREAM_SOURCES: string[] = [];
 
 type ChannelCategory = 'news' | 'sports' | 'movies' | 'kids' | 'streaming' | 'series' | 'apps';
 
@@ -325,6 +334,10 @@ const inferCategory = (groupTitleRaw: string, channelName: string): ChannelCateg
   return 'news';
 };
 
+function isBareIpv4Host(hostname: string): boolean {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+}
+
 const parseM3U = (m3uText: string, descriptionPrefix: string) => {
   const lines = m3uText.split('\n');
   const channels = new Map<string, any>();
@@ -353,23 +366,47 @@ const parseM3U = (m3uText: string, descriptionPrefix: string) => {
     }
 
     if (line.startsWith('http') && currentChannel) {
-      if (!seenStreamUrls.has(line)) {
-        seenStreamUrls.add(line);
-        const channelKey = toSlug(currentChannel.name);
-        const existing = channels.get(channelKey);
+      // Si el .m3u trae HTTP, a veces conviene guardar también variante HTTPS (solo host con nombre; en IP casi nunca existe).
+      const candidates: string[] = [line];
+      if (line.toLowerCase().startsWith('http://')) {
+        try {
+          const host = new URL(line).hostname;
+          if (!isBareIpv4Host(host) && !host.includes(':')) {
+            const httpsLine = line.replace(/^http:\/\//i, 'https://');
+            if (httpsLine !== line) candidates.push(httpsLine);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const channelKey = toSlug(currentChannel.name);
+      const existing = channels.get(channelKey);
+
+      for (const candidate of candidates) {
+        if (seenStreamUrls.has(candidate)) continue;
+        seenStreamUrls.add(candidate);
+
         if (!existing) {
           channels.set(channelKey, {
             ...currentChannel,
-            streamUrl: line,
-            streamAlternatives: [line],
+            streamUrl: candidate,
+            streamAlternatives: [candidate],
             docId: `${channelKey}-${hashString(channelKey)}`,
           });
-        } else if (!existing.streamAlternatives.includes(line)) {
-          existing.streamAlternatives.push(line);
-          // Preferir HTTPS como fuente principal cuando exista.
-          if (line.startsWith('https://') && !String(existing.streamUrl || '').startsWith('https://')) {
-            existing.streamUrl = line;
-          }
+          continue;
+        }
+
+        if (!existing.streamAlternatives.includes(candidate)) {
+          existing.streamAlternatives.push(candidate);
+        }
+
+        // Preferir HTTPS como fuente principal cuando exista.
+        if (
+          candidate.toLowerCase().startsWith('https://') &&
+          !String(existing.streamUrl || '').toLowerCase().startsWith('https://')
+        ) {
+          existing.streamUrl = candidate;
         }
       }
       currentChannel = null;
@@ -405,6 +442,74 @@ const upsertChannels = async (items: any[], replaceExisting = false) => {
   return items.length;
 };
 
+/** Guess MIME for Video.js; many IPTV URLs omit .m3u8 but are still HLS. */
+function inferStreamMimeType(url: string, isLive: boolean): string {
+  const u = url.toLowerCase();
+  if (u.includes('.mpd')) return 'application/dash+xml';
+  if (/\.mp4(\?|#|$)/i.test(url) || u.includes('mime=video%2fmp4') || u.includes('mime=video/mp4')) {
+    return 'video/mp4';
+  }
+  if (
+    u.includes('.m3u8') ||
+    u.includes('m3u8') ||
+    u.includes('/hls/') ||
+    u.includes('format=m3u8') ||
+    u.includes('type=m3u8') ||
+    u.includes('type=hls') ||
+    u.includes('/live/') ||
+    u.includes('/stream/') ||
+    (u.includes('playlist') && (u.includes('master') || u.includes('live')))
+  ) {
+    return 'application/x-mpegURL';
+  }
+  if (isLive) return 'application/x-mpegURL';
+  return 'video/mp4';
+}
+
+function alternateStreamMime(primary: string, isLive: boolean): string | null {
+  if (primary === 'application/dash+xml') return null;
+  if (primary === 'application/x-mpegURL') return 'video/mp4';
+  if (primary === 'video/mp4' && isLive) return 'application/x-mpegURL';
+  return null;
+}
+
+/** Orden de URLs: en HTTPS prioriza alternativas https del M3U; evita https “inventado” sobre IP (casi nunca sirve). */
+function buildLiveStreamCandidates(mainSrc: string, alternatives: string[]): string[] {
+  const dedup = new Set<string>();
+  const out: string[] = [];
+  const add = (u?: string | null) => {
+    const s = String(u || '').trim();
+    if (!s || dedup.has(s)) return;
+    dedup.add(s);
+    out.push(s);
+  };
+
+  const pageHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const alts = (alternatives || []).filter(Boolean).map(String);
+
+  if (pageHttps) {
+    for (const u of alts) {
+      if (u.toLowerCase().startsWith('https://')) add(u);
+    }
+  }
+  add(mainSrc);
+  for (const u of alts) add(u);
+
+  if (pageHttps && mainSrc.toLowerCase().startsWith('http://')) {
+    try {
+      const host = new URL(mainSrc).hostname;
+      if (!isBareIpv4Host(host) && !host.includes(':')) {
+        const derived = mainSrc.replace(/^http:\/\//i, 'https://');
+        add(derived);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return out;
+}
+
 const VideoPlayer = ({
   src,
   sources = [],
@@ -438,12 +543,20 @@ const VideoPlayer = ({
   const playerRef = useRef<any>(null);
   const lastSavedRef = useRef<number>(0);
   const [error, setError] = useState<string | null>(null);
-  const candidateSources = [src, ...sources.filter((s) => s !== src)];
+  const alternativesKey = JSON.stringify([...(sources || [])].map(String).sort());
+  const candidateSources = useMemo(
+    () => buildLiveStreamCandidates(src, sources || []),
+    [src, alternativesKey]
+  );
   const [sourceIndex, setSourceIndex] = useState(0);
-
+  const [mimeFallbackStep, setMimeFallbackStep] = useState(0);
   useEffect(() => {
     setSourceIndex(0);
   }, [src]);
+
+  useEffect(() => {
+    setMimeFallbackStep(0);
+  }, [src, sourceIndex]);
 
   const flushProgress = useCallback(
     (force = false) => {
@@ -498,17 +611,18 @@ const VideoPlayer = ({
     if (!videoRef.current) return;
     setError(null);
 
-    // Detect mixed content (HTTP on HTTPS)
-    const isHttps = window.location.protocol === 'https:';
-    const currentSrc = candidateSources[sourceIndex] || src;
-    const isHttpSource = currentSrc.startsWith('http:');
-
-    if (isHttps && isHttpSource && !Capacitor.isNativePlatform()) {
-      if (sourceIndex < candidateSources.length - 1) {
-        setSourceIndex((idx) => idx + 1);
-      } else {
-        setError('Canal no disponible.');
-      }
+    const currentSrcRaw = candidateSources[sourceIndex] || src;
+    const currentSrc = wrapHttpStreamUrlWithProxy(currentSrcRaw);
+    const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const isElectron = typeof window !== 'undefined' && Boolean((window as any).electronAPI?.getAppMeta);
+    if (
+      !Capacitor.isNativePlatform() &&
+      isHttpsPage &&
+      currentSrc.startsWith('http://') &&
+      !isElectron &&
+      !shouldProxyHttpStreams()
+    ) {
+      setError('Canal no disponible');
       return;
     }
 
@@ -516,11 +630,15 @@ const VideoPlayer = ({
     videoElement.classList.add('vjs-big-play-centered', 'vjs-theme-city');
     videoRef.current.appendChild(videoElement);
 
-    const isDash = currentSrc.includes('.mpd');
-    const isHls = currentSrc.includes('.m3u8') || currentSrc.includes('playlist');
+    const primaryMime = inferStreamMimeType(currentSrc, isLive);
+    const altMime = alternateStreamMime(primaryMime, isLive);
+    const streamType =
+      mimeFallbackStep === 1 && altMime != null ? altMime : primaryMime;
 
     const player = playerRef.current = videojs(videoElement, {
       autoplay: true,
+      muted: true,
+      playsInline: true,
       controls: true,
       responsive: true,
       fluid: false,
@@ -528,15 +646,24 @@ const VideoPlayer = ({
       liveui: true,
       html5: {
         vhs: {
-          overrideNative: true
+          // WebView/Capacitor: nativo. iOS Safari web: nativo HLS. Chrome/Firefox: VHS (MSE).
+          overrideNative: Capacitor.isNativePlatform() ? false : !isIosWeb(),
         },
         nativeAudioTracks: false,
         nativeVideoTracks: false
       },
-      sources: [{ 
-        src: currentSrc, 
-        type: isDash ? 'application/dash+xml' : (isHls ? 'application/x-mpegURL' : 'video/mp4')
-      }]
+      sources: [{ src: currentSrc, type: streamType }]
+    });
+
+    const proxyPrefix = getHlsHttpProxyPrefix();
+    const detachVhsProxy = attachVhsHttpProxyOnRequest(player, proxyPrefix);
+
+    player.ready(() => {
+      try {
+        void player.play?.()?.catch(() => {});
+      } catch {
+        /* ignore */
+      }
     });
 
     if (!isLive && itemId && uid && initialPosition && initialPosition > 5) {
@@ -574,14 +701,21 @@ const VideoPlayer = ({
     player.on('error', () => {
       const err = player.error();
       console.error('VideoJS Error:', err);
+
       if (sourceIndex < candidateSources.length - 1) {
         setSourceIndex((idx) => idx + 1);
         return;
       }
-      setError('Canal no disponible.');
+      const retryMime = alternateStreamMime(inferStreamMimeType(currentSrc, isLive), isLive);
+      if (mimeFallbackStep === 0 && retryMime != null) {
+        setMimeFallbackStep(1);
+        return;
+      }
+      setError('Canal no disponible');
     });
 
     return () => {
+      detachVhsProxy();
       flushProgress(true);
       if (playerRef.current) {
         playerRef.current.dispose();
@@ -591,7 +725,7 @@ const VideoPlayer = ({
         videoRef.current.innerHTML = '';
       }
     };
-  }, [src, sourceIndex, flushProgress, initialPosition, isLive, itemId, uid]);
+  }, [src, sourceIndex, mimeFallbackStep, alternativesKey, flushProgress, initialPosition, isLive, itemId, uid]);
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-black">
@@ -605,13 +739,12 @@ const VideoPlayer = ({
       </button>
       <div className="flex min-h-0 flex-1 w-full items-stretch justify-center pt-2">
         {error ? (
-          <div className="flex max-w-lg flex-col items-center justify-center px-6 text-center">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-danger/15">
-              <AlertTriangle className="text-danger" size={40} />
+          <div className="flex max-w-md flex-col items-center justify-center px-6 text-center">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-danger/15">
+              <AlertTriangle className="text-danger" size={32} />
             </div>
-            <h3 className="mb-4 text-2xl font-black uppercase tracking-tight text-white">Canal no disponible</h3>
-            <p className="mb-8 text-sm font-medium leading-relaxed text-text-dim">{error}</p>
-            <div className="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
+            <p className="mb-10 text-lg font-bold text-white">Canal no disponible</p>
+            <div className="flex w-full max-w-sm flex-col gap-3 sm:flex-row sm:justify-center">
               <button
                 type="button"
                 onClick={() => {
@@ -2605,7 +2738,10 @@ export default function App() {
         .filter((ch: any) => {
           if (ch.deleted) return false;
           if (!Boolean(ch.streamUrl || ch.externalUrl)) return false;
-          if (ch.health && ch.health.ok === false && !Capacitor.isNativePlatform()) return false;
+          if (ch.health && ch.health.ok === false && !Capacitor.isNativePlatform()) {
+            const isElectron = typeof window !== 'undefined' && Boolean((window as any).electronAPI?.getAppMeta);
+            if (!isElectron) return false;
+          }
           return true;
         })
         .filter((ch: any) => {
@@ -2735,7 +2871,7 @@ export default function App() {
         {selectedChannel && (
           <VideoPlayer 
             src={selectedChannel.streamUrl} 
-            sources={selectedChannel.streamAlternatives || []}
+            sources={selectedChannel.streamAlternatives ?? EMPTY_STREAM_SOURCES}
             onClose={() => setSelectedChannel(null)}
             zapChannels={channelZapList}
             zapCurrentId={selectedChannel.id}
@@ -2797,13 +2933,13 @@ export default function App() {
                 onOpenBrand={(b) => setActiveBrand(b)}
                 onOpenSection={handleTabChange}
               />
-              <InstallStreamNexusSection />
-              {isAdminUser && (
+              <div className="mt-12 space-y-10 border-t border-white/5 pt-10 pb-24">
+                <InstallStreamNexusSection />
                 <AppUpdatePanel
                   fallbackApkUrl={PUBLIC_GITHUB_TV_APK_LATEST}
                   releasesUrl={PUBLIC_GITHUB_RELEASES_LATEST}
                 />
-              )}
+              </div>
             </motion.div>
           )}
 

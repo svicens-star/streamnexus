@@ -233,6 +233,12 @@ export const ChannelsBrowser: React.FC<ChannelsBrowserProps> = ({
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
+    if (!isNative || !showKeyboard) return;
+    const t = window.setTimeout(() => searchInputRef.current?.focus(), 120);
+    return () => window.clearTimeout(t);
+  }, [isNative, showKeyboard]);
+
+  useEffect(() => {
     const update = () => {
       const w = window.innerWidth;
       if (w >= 1536) setGridCols(3);
@@ -360,24 +366,38 @@ export const ChannelsBrowser: React.FC<ChannelsBrowserProps> = ({
           <div className="relative flex-1">
             <Search
               size={20}
-              className="absolute left-5 top-1/2 -translate-y-1/2 text-text-dim"
+              className="absolute left-5 top-1/2 z-[1] -translate-y-1/2 text-text-dim pointer-events-none"
             />
-            <input
-              ref={searchInputRef}
-              type="text"
-              inputMode={isNative && !showKeyboard ? 'none' : 'search'}
-              value={search}
-              readOnly={isNative && !showKeyboard}
-              onChange={(e) => setSearch(e.target.value)}
-              onFocus={(e) => {
-                if (isNative && !showKeyboard) {
-                  e.preventDefault();
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              placeholder="Buscar canal, película o serie..."
-              className="w-full bg-surface border border-white/10 rounded-2xl pl-14 pr-32 h-14 text-base text-white outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent transition-all"
-            />
+            {isNative && !showKeyboard ? (
+              <div
+                tabIndex={0}
+                role="search"
+                aria-label="Buscar canal. Usá «Teclado TV» para escribir."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setShowKeyboard(true);
+                  }
+                }}
+                className="flex w-full items-center rounded-2xl border border-white/10 bg-surface pl-14 pr-32 h-14 text-base outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent transition-all"
+              >
+                <span
+                  className={`min-w-0 flex-1 truncate ${search ? 'text-white' : 'text-text-dim'}`}
+                >
+                  {search || 'Buscar canal, película o serie…'}
+                </span>
+              </div>
+            ) : (
+              <input
+                ref={searchInputRef}
+                type="text"
+                inputMode="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar canal, película o serie..."
+                className="w-full bg-surface border border-white/10 rounded-2xl pl-14 pr-32 h-14 text-base text-white outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent transition-all"
+              />
+            )}
             {search && (
               <button
                 type="button"

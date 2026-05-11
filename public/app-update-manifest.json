@@ -1,5 +1,5 @@
 {
-  "latestVersion": "0.0.15",
+  "latestVersion": "0.0.16",
   "apkDownloadUrl": "https://cdn.jsdelivr.net/gh/svicens-star/streamnexus@main/public/downloads/StreamNexus-TV-install.apk",
   "releasesUrl": "https://github.com/svicens-star/streamnexus/releases/latest",
   "message": "Al publicar un APK nuevo, subí este archivo con latestVersion mayor que package.json y hacé commit a main."

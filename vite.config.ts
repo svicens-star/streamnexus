@@ -39,6 +39,9 @@ export default defineConfig(({mode}) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,svg,ico,png,woff2}'],
           navigateFallback: 'index.html',
+          // Para que Base44/Browser apliquen rápido cambios del bundle.
+          skipWaiting: true,
+          clientsClaim: true,
         },
         devOptions: {enabled: false},
       }),

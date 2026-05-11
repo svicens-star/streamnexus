@@ -13,6 +13,12 @@ interface ImportMetaEnv {
   readonly VITE_APP_UPDATE_MANIFEST_URL?: string;
   /** API key de YouTube Data API v3 para buscador de música interno. */
   readonly VITE_YT_API_KEY?: string;
+  /**
+   * Prefijo HTTPS del proxy HLS (opcional). Si no se define, en HTTPS/Base44/APK se usa la función
+   * `hlsHttpProxy` en `base44/functions/hlsHttpProxy/entry.ts` (desplegar con `npm run deploy:base44:functions`).
+   * Ejemplo: `https://tu-dominio.com/hls-proxy?url=` + encodeURIComponent(url).
+   */
+  readonly VITE_STREAM_PROXY_PREFIX?: string;
 }
 
 interface ImportMeta {
